@@ -13,6 +13,7 @@
  function summarize(o){return `${o.iterations}×${o.subsets} · inicio ${o.initialization==='uniform'?'uniforme':'FBP'} · AC ${o.attenuationCorrection?'sí':'no'} · dispersión ${o.scatter?'peso '+o.scatterWeight:'no'} · PSF ${o.resolutionRecovery?o.psfFwhm100+' mm a 100 mm, intrínseca '+o.psfIntrinsic+' mm':'no'} · distancia ${o.distanceDependent?'por órbita':'constante'} · axial ${o.axialRecovery?'3D':'no'} · suavizado dispersión ${o.scatterSmoothing?o.scatterFwhm+' mm':'no'} · filtro final ${o.postFilter?o.postFilterFWHMmm+' mm':'no'}`;}
  function addEntry(entry){entry.id='r'+(++serial);history.push(entry);refreshLists();return entry.id;}
  function refreshLists(){
+  refreshExport95();
   for(const id of ['historyTop95','historyBottom95']){const selected=e(id).value;e(id).replaceChildren(...history.map(r=>new Option(r.label+' · '+duration(r.seconds),r.id)));if(history.some(r=>r.id===selected))e(id).value=selected;}
   e('historyList95').replaceChildren(...history.map(r=>{const tr=document.createElement('tr');for(const value of [r.label,duration(r.seconds),r.description]){const td=document.createElement('td');td.textContent=value;if(value===duration(r.seconds))td.append(timingDetails(r));tr.append(td);}return tr;}));
  }
@@ -24,6 +25,20 @@
   const table=document.createElement('table');for(const [label,seconds]of entries){const row=document.createElement('tr');for(const value of [label,seconds==null?'No registrado':seconds<1?seconds.toFixed(3)+' s':duration(seconds)]){const td=document.createElement('td');td.textContent=value;row.append(td);}table.append(row);}box.append(table);
   const note=document.createElement('p');note.textContent=r.timing?'Los subprocesos de los trabajadores se solapan cuando hay paralelismo: sus tiempos acumulados no se suman al total transcurrido. En una ejecución reutilizada no se repiten esos subprocesos (0 s).':'El tiempo FBP excluye el suavizado de visualización.';box.append(note);return box;
  }
+ function refreshExport95(){
+  const select=e('exportSeries95'),selected=select.value,entries=history.filter(r=>r.kind==='OSEM');
+  select.replaceChildren(...entries.map(r=>new Option(r.label+' · '+duration(r.seconds),r.id)));
+  if(entries.some(r=>r.id===selected))select.value=selected;else if(entries.length)select.value=entries.at(-1).id;
+  select.disabled=e('exportDicom95').disabled=!entries.length;
+  e('exportInfo95').textContent=entries.length?'Selecciona una reconstrucción terminada. Se guardarán sus opciones aplicadas y los cortes reconstruidos contiguos.':'Primero completa una reconstrucción OSEM en el paso 3.';
+ }
+ e('exportDicom95').onclick=()=>{try{
+  synchronize();const entry=history.find(r=>r.id===e('exportSeries95').value),s=Lab95Live.get().spect;
+  if(!entry||!s)throw Error('No hay una reconstrucción OSEM disponible.');
+  const blob=buildSpectDicom95(entry,s);
+  download(blob,`spect-${entry.id}-${entry.parameters.iterations}x${entry.parameters.subsets}-${entry.parameters.attenuationCorrection?'ac':'nac'}.dcm`);
+  e('exportInfo95').textContent=`Descarga preparada: ${entry.label}, ${entry.rows.size} cortes, ${(blob.size/1048576).toFixed(1)} MB. Un archivo DICOM NM multiframe, solo SPECT. Se conserva la identificación del estudio original.`;
+ }catch(err){e('exportInfo95').textContent='No se pudo exportar: '+err.message;}};
  function synchronize(){
   const state=Lab95Live.get(),s=state.spect;
   if(source!==s){stop();source=s;sourceWindow=null;history=[];serial=0;autoDone=false;autoAttempt='';osem95RawCache=null;refreshLists();if(s)for(const row of ['Top','Bottom']){e('history'+row+'Slice95').max=s.n-1;e('history'+row+'Slice95').value=Math.floor(s.n/2);}}
@@ -38,7 +53,7 @@
  function scheduleAuto(){clearTimeout(autoTimer);autoTimer=setTimeout(()=>{synchronize();const st=Lab95Live.get();if(step!==2||autoDone||busy||!st.spect||!st.fbp)return;
    const sig=JSON.stringify([options(),e('outsideAir95').checked,e('osemScatter95').value,!!st.mu]);if(autoAttempt===sig)return;autoAttempt=sig;execute(true);
   },250);}
- document.addEventListener('lab95navigate',()=>{synchronize();draw();scheduleAuto();});
+ document.addEventListener('lab95navigate',()=>{synchronize();refreshExport95();draw();scheduleAuto();});
  e('runOsem95').onclick=()=>execute(!autoDone);
  async function execute(initial){
   synchronize();if(busy)return;const state=Lab95Live.get(),s=state.spect;
