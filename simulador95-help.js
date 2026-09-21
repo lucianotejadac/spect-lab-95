@@ -42,7 +42,8 @@
  spectFile:['Proyecciones SPECT','Carga directamente un DICOM NM con proyecciones tomográficas originales. No se acepta una reconstrucción como entrada de OSEM.'],spectFolder:['Carpeta de estudio','Examina una carpeta completa. Las adquisiciones SPECT aparecen en su lista y las series TC encontradas aparecen también en la lista TC.'],spectSeries:['Adquisición SPECT','Elige cuál archivo de proyecciones tomográficas se cargará. La compatibilidad completa se comprueba al seleccionarlo.'],ctFiles:['Archivos TC','Examina los cortes TC seleccionados y los agrupa por serie. Después debes elegir una serie.'],ctFolder:['Carpeta de estudio','Examina una carpeta completa. Las series TC aparecen en su lista y las adquisiciones SPECT encontradas aparecen también en la lista SPECT.'],ctSeries:['Serie TC','Elige la serie que se usará para fusión y mapa μ. No se selecciona automáticamente la primera serie.'],
  new:['Nuevo estudio','Reinicia entradas, resultados e historial de esta sesión para cargar otro estudio. Guarda antes el registro si lo necesitas.']
  });
- for(const side of ['Top','Bottom']){help['history'+side+'Plane95']=['Plano del panel','Selecciona axial, coronal o sagital solo para este panel. Para comparar la misma zona, elige también el mismo plano en el otro.'];help['history'+side+'Slice95']=['Corte del panel','Recorre los cortes del plano seleccionado, sin reconstruir. El otro panel conserva su corte.'];}
+ for(const side of ['Top','Bottom']){help['history'+side+'Plane95']=['Plano del panel','Selecciona axial, coronal o sagital. Con los paneles enlazados, el otro cambia al mismo plano; si los desenlazas, cada panel conserva el suyo.'];help['history'+side+'Slice95']=['Corte del panel','Recorre los cortes del plano seleccionado, sin reconstruir. Con los paneles enlazados, el otro se mueve al mismo corte.'];}
+ help.linkPanels95=['Mover los dos paneles juntos','Enlaza el plano y el corte de los dos paneles, que es lo que permite comparar la misma zona en dos reconstrucciones. Desmárcalo para recorrer un panel por separado. La reconstrucción de cada panel se elige siempre por separado, y esto no altera ningún valor reconstruido.'];
  help.historyTop95=['Reconstrucción izquierda','Selecciona un resultado del historial para el panel izquierdo. Conserva sus parámetros originales.'];help.historyBottom95=['Reconstrucción derecha','Selecciona el resultado que quieres comparar a la derecha. Los nuevos resultados aparecen aquí.'];
  for(const base of ['spectLevel','spectWidth','ctLevel','ctWidth'])help[base+'Number95']=help[base+'95'];
  const topicFor=id=>{
@@ -54,7 +55,7 @@
   if(['energy95','ramp95','fbp95','cancel95'].includes(id))return 'fbp';
   if(['confirm95','rx95','ry95','rz95','livePlane95','liveSlice95'].includes(id))return 'registration';
   if(['spectFile','spectFolder','spectSeries','ctFiles','ctFolder','ctSeries','new'].includes(id))return 'data';
-  if(id.includes('Level')||id.includes('Width')||['ctWindow95','blend95','resetWindows95','plane','slice','window','swap','osemWindow95'].includes(id)||id.startsWith('historyA')||id.startsWith('historyC')||id.startsWith('historyS'))return 'window';
+  if(id.includes('Level')||id.includes('Width')||['ctWindow95','blend95','resetWindows95','plane','slice','window','swap','osemWindow95','linkPanels95'].includes(id)||id.startsWith('historyA')||id.startsWith('historyC')||id.startsWith('historyS'))return 'window';
   return 'timing';
  };
  const lessonDialog=document.createElement('dialog');lessonDialog.id='lessonDialog95';lessonDialog.setAttribute('aria-labelledby','lessonTitle95');

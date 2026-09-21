@@ -94,6 +94,17 @@
    }
   }
  }
- for(const id of ['historyTop95','historyBottom95','historyTopPlane95','historyBottomPlane95','historyTopSlice95','historyBottomSlice95','osemWindow95'])e(id).oninput=draw;
+ // Comparing two reconstructions means looking at the same place in both: plane and slice
+ // travel together unless the student unlinks them to inspect one panel on its own.
+ const linked=()=>e('linkPanels95').checked;
+ function mirror(from){
+  const to=from==='Top'?'Bottom':'Top';
+  e('history'+to+'Plane95').value=e('history'+from+'Plane95').value;
+  const target=e('history'+to+'Slice95');target.value=Math.max(0,Math.min(+target.max,+e('history'+from+'Slice95').value));
+ }
+ for(const side of ['Top','Bottom'])for(const control of ['Plane95','Slice95'])
+  e('history'+side+control).oninput=()=>{if(linked())mirror(side);draw();};
+ e('linkPanels95').onchange=()=>{if(linked())mirror('Top');draw();};
+ for(const id of ['historyTop95','historyBottom95','osemWindow95'])e(id).oninput=draw;
  e('saveHistory95').onclick=()=>download(new Blob([JSON.stringify(history.map(({data,rawRef,rows,...r})=>({...r,rows:rows?[...rows]:null})),null,2)],{type:'application/json'}),'historial-reconstrucciones.json');
 })();
