@@ -50,6 +50,7 @@
 .comparePair95 .historyrow95{border:2px outset #fff;padding:3px;min-width:0}
 .comparePair95 canvas{display:block;width:100%;height:var(--mpr-height95,300px);object-fit:contain;background:#000;image-rendering:pixelated}
 .panelControls95{display:flex;align-items:center;gap:8px;margin:3px 0}.panelControls95 label{display:flex;align-items:center;gap:4px;min-width:0}.panelControls95 label:last-child{flex:1}.panelControls95 input{width:100%;min-width:30px}.panelControls95 output{white-space:nowrap}
+.workspace.sinLateral95{grid-template-columns:minmax(0,1fr)}
 .compareToolbar95{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}.compareToolbar95 label{display:flex;gap:8px;align-items:center}.compareToolbar95 input[type=range]{width:150px}
 @media(max-width:650px){.comparePair95{grid-template-columns:1fr}}
 .helpName95{cursor:help}.helpName95:hover{text-decoration:underline;text-decoration-style:dotted}.helpName95:focus-visible{outline:1px dotted #000;outline-offset:2px}
