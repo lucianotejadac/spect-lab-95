@@ -1,5 +1,8 @@
 // DICOM Part 10, Explicit VR Little Endian, Nuclear Medicine Image Storage.
 // Encodes the reconstructed volume, never rendered canvases or CT data.
+// PatientAge belongs to the Patient Study module, not to Patient: MicroDicom reconciles
+// series by their study level attributes and refuses to fuse one whose age is missing or
+// differs from the CT's, so it is copied from the projections like the rest.
 function buildSpectDicom95(entry,s){
  const completed=true,volume=entry.data,valid=Array.from({length:s.n},(_,i)=>entry.rows.has(i)),meta={n:s.n,spacing:s.spacing,geometry:s,dicomSource:s.dicomSource,energy:(()=>{const w=s.windows.find(w=>w.id===entry.parameters.energyWindow);return [w.low,w.high];})()},settings={method:"OSEM",iterations:entry.parameters.iterations,subsets:entry.parameters.subsets,ac:entry.parameters.attenuationCorrection,offsets:entry.parameters.registrationOffsets};
  if(entry.kind!=="OSEM"||volume.length!==s.n**3)throw Error("Selecciona una reconstrucción OSEM terminada.");
@@ -31,7 +34,7 @@ function buildSpectDicom95(entry,s){
  const dataset=concat([
  E(8,5,'CS','ISO_IR 192'),E(8,8,'CS',['DERIVED','PRIMARY','RECON TOMO','EMISSION']),E(8,0x16,'UI',klass),E(8,0x18,'UI',sop),
  E(8,0x20,'DA',source.StudyDate),E(8,0x23,'DA',date),E(8,0x30,'TM',source.StudyTime),E(8,0x33,'TM',time),E(8,0x50,'SH',source.AccessionNumber),E(8,0x60,'CS','NM'),E(8,0x70,'LO','Local SPECT prototype'),E(8,0x90,'PN',''),E(8,0x0201,'SH','+0000'),E(8,0x1030,'LO',source.StudyDescription||''),E(8,0x103e,'LO',`EXPERIMENTAL SPECT ${settings.method} ${settings.ac?'AC':'NAC'}`),E(8,0x2111,'ST',derivation),S(8,0x2112,[concat([E(8,0x1150,'UI',source.SOPClassUID),E(8,0x1155,'UI',source.SOPInstanceUID)])]),
- E(0x0010,0x0010,'PN',source.PatientName),E(0x0010,0x0020,'LO',source.PatientID),E(0x0010,0x0030,'DA',source.PatientBirthDate),E(0x0010,0x0040,'CS',source.PatientSex),
+ E(0x0010,0x0010,'PN',source.PatientName),E(0x0010,0x0020,'LO',source.PatientID),E(0x0010,0x0030,'DA',source.PatientBirthDate),E(0x0010,0x0040,'CS',source.PatientSex),E(0x0010,0x1010,'AS',source.PatientAge),
  E(0x0011,0x0010,'LO','LOCAL_SPECT_PROTOTYPE'),E(0x0011,0x1010,'UT',JSON.stringify(provenance)),
  E(0x0018,0x0050,'DS',ds(sp)),E(0x0018,0x0070,'IS',''),E(0x0018,0x0088,'DS',ds(sp)),E(0x0018,0x1020,'LO','SPECT-PROTOTYPE-1'),E(0x0018,0x1100,'DS',ds(n*sp)),E(0x0018,0x1210,'SH',settings.method),E(0x0018,0x5020,'LO',`${settings.method} ${settings.iterations} iterations ${settings.subsets} subsets`),E(0x0018,0x5100,'CS',source.PatientPosition||''),
  E(0x0020,0x000d,'UI',study),E(0x0020,0x000e,'UI',series),E(0x0020,0x0010,'SH',source.StudyID),E(0x0020,0x0011,'IS','901'),E(0x0020,0x0013,'IS','1'),E(0x0020,0x0032,'DS',position),E(0x0020,0x0037,'DS',['1','0','0','0','1','0']),E(0x0020,0x0052,'UI',frame),E(0x0020,0x1040,'LO',''),E(0x0020,0x4000,'LT','EXPERIMENTAL. Relative intensity; approximate orientation and AC. Not validated for diagnosis.'),
