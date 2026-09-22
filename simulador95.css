@@ -74,6 +74,7 @@
 .tutorialPasos95 li.actual{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;color:#000;font-weight:bold}
 .tutorialPasos95 li.actual p{font-weight:normal;margin:6px 0 0}
 .tutorialProblema95{color:#8b0000!important;border-left:3px solid #c00;padding-left:7px}
+.tutorialPreguntas95 ol{padding-left:18px;margin:4px 0}.tutorialPreguntas95 li{margin:4px 0}
 .tutorialDetalle95{font-weight:normal;color:#004000;font-size:11px;margin:3px 0 0;border-left:3px solid #006400;padding-left:7px}
 .tutorialBotones95{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .tutorialBotones95 button{font-weight:normal;padding:3px 8px;min-height:0}

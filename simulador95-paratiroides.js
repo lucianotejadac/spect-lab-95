@@ -150,6 +150,11 @@
    panel.append(h('div',{class:'tutorialCierre95'},h('h4',{},'Primera parte completa'),h('p',{},'Llevas al visor estos archivos, más los dos CT del caso:'),productos,
     h('a',{class:'tutorialEnlace95',href:`${PARATIROIDES_VISOR}?caso=${estado.caso}`,target:'_blank',rel:'noopener'},'Segunda parte: abrir el visor con este caso ▶'),
     h('p',{class:'tutorialNota95'},'El visor pregunta lo mismo que este panel y sigue guiando: fusión de cada fase con su CT, cortes axiales fusionados de 3 mm y captura del MIP.')));
+   // Preguntas sobre el procesamiento: se pueden discutir ya, con las dos OSEM a la vista.
+   const preguntas=h('details',{class:'tutorialPreguntas95',open:''},h('summary',{},'Preguntas para la discusión · procesamiento'));
+   const ol=h('ol',{});for(const q of PARATIROIDES_PREGUNTAS_PROCESO)ol.append(h('li',{},q));
+   preguntas.append(ol,h('p',{class:'tutorialNota95'},'Las preguntas sobre la imagen del caso están en el visor, al terminar la segunda parte.'));
+   panel.append(preguntas);
   }
  }
  function renderEleccion(){
