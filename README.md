@@ -10,6 +10,8 @@ El botón **Tutorial paratiroides** de la barra de menú abre un panel guiado so
 
 Al terminar las dos fases, el panel entrega un enlace al visor Volumina con el caso ya elegido: allí sigue la segunda parte, fusión con el CT de cada fase, cortes axiales fusionados y captura del MIP. `?caso=N` en la URL abre el simulador directamente en ese caso.
 
+Enlaces directos por caso, para repartir a los estudiantes: [caso 1](https://lucianotejadac.github.io/spect-lab-95/?caso=1) · [caso 2](https://lucianotejadac.github.io/spect-lab-95/?caso=2) · [caso 3](https://lucianotejadac.github.io/spect-lab-95/?caso=3) · [caso 4](https://lucianotejadac.github.io/spect-lab-95/?caso=4) · [caso 5](https://lucianotejadac.github.io/spect-lab-95/?caso=5). Cada estudiante necesita además la carpeta de su caso con las proyecciones NM y los CT de las dos fases.
+
 Los datos de los casos viven en `paratiroides-casos.js`, idéntico en los dos repositorios. La clínica está desidentificada y los marcos de referencia se guardan como hash, no como UID. Los DICOM de los casos no forman parte del repositorio.
 
 ## Privacidad

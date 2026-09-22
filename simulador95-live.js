@@ -33,7 +33,7 @@
     if(i%8===0){const progress=`Examinando carpeta compartida: ${i+1}/${files.length}…`;el('spectInfo').textContent=el('ctInfo').textContent=progress;await new Promise(r=>setTimeout(r,0));}
    }
    if(spectEpoch!==spEpoch||ctToken!==ctEpoch)return;const sp=el('spectSeries'),ct=el('ctSeries');sp.replaceChildren(new Option(spectCandidates.length?'Elige una adquisición SPECT…':'Sin adquisiciones SPECT',''));spectCandidates.forEach((q,i)=>sp.add(new Option(`${q.name} · ${q.rows||'?'} × ${q.cols||'?'} · ${q.frames} imágenes · ${q.file.webkitRelativePath||q.file.name}`,String(i))));sp.disabled=!spectCandidates.length;ct.replaceChildren(new Option(groups.size?'Elige una serie TC…':'Sin series TC',''));for(const [key,g]of [...groups].sort((a,b)=>b[1].slices.length-a[1].slices.length))ct.add(new Option(`${g.name} · ${g.slices.length} cortes`,key));ct.disabled=!groups.size;el('spectInfo').textContent=spectCandidates.length?`${spectCandidates.length} adquisición(es) SPECT encontrada(s). Elige cuál cargar.`:'No se encontraron proyecciones SPECT tomográficas originales.';el('ctInfo').textContent=groups.size?`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar.`:'No se encontraron series TC axiales compatibles.';message(`Carpeta examinada: ${spectCandidates.length} SPECT, ${groups.size} serie(s) TC y ${ignored} archivo(s) no utilizados.`);
-  }catch(e){if(spectEpoch!==spEpoch||ctToken!==ctEpoch)return;spectCandidates=[];groups.clear();el('spectSeries').replaceChildren(new Option('Sin adquisiciones',''));el('ctSeries').replaceChildren(new Option('Sin series',''));el('spectInfo').textContent=el('ctInfo').textContent=e.message+(lastError?' Último archivo: '+lastError:'');message(e.message);}finally{if(spectEpoch===spEpoch&&ctToken===ctEpoch){loadingCT=false;el('fbp95').disabled=!S;}}
+  }catch(e){if(spectEpoch!==spEpoch||ctToken!==ctEpoch)return;spectCandidates=[];groups.clear();el('spectSeries').replaceChildren(new Option('Sin adquisiciones',''));el('ctSeries').replaceChildren(new Option('Sin series',''));el('spectInfo').textContent=el('ctInfo').textContent=e.message+(lastError?' Último archivo: '+lastError:'');message(e.message);}finally{if(spectEpoch===spEpoch&&ctToken===ctEpoch){loadingCT=false;el('fbp95').disabled=!S;notifyState();}}
  }
  el('spectFolder').onchange=()=>scanStudyFolder([...el('spectFolder').files]);
  el('spectSeries').onchange=()=>{const i=Number(el('spectSeries').value);if(el('spectSeries').value===''||!spectCandidates[i])return;loadSpect(spectCandidates[i].file);};
@@ -44,7 +44,7 @@
     if(i%8===0){el('ctInfo').textContent=`Cargando TC ${i+1}/${files.length}…`;await new Promise(r=>setTimeout(r,0));if(epoch!==ctEpoch)return;}
    }
    if(!groups.size)throw Error('No hay TC compatible. '+lastError);el('ctSeries').add(new Option('Elige una serie TC…',''));for(const [key,g] of [...groups].sort((a,b)=>b[1].slices.length-a[1].slices.length))el('ctSeries').add(new Option(`${g.name} · ${g.slices.length} cortes`,key));el('ctSeries').value='';el('ctSeries').disabled=false;loadingCT=false;el('ctInfo').textContent=`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar. ${omitted} archivo(s) omitidos.`;message('Carpeta o archivos TC examinados. Elige una serie.');
-  }catch(e){if(epoch!==ctEpoch)return;groups.clear();CT=null;el('ctInfo').textContent=e.message;message(e.message);}finally{if(epoch===ctEpoch){loadingCT=false;el('fbp95').disabled=!S;}}
+  }catch(e){if(epoch!==ctEpoch)return;groups.clear();CT=null;el('ctInfo').textContent=e.message;message(e.message);}finally{if(epoch===ctEpoch){loadingCT=false;el('fbp95').disabled=!S;notifyState();}}
  }
  function selectCT(){CT=null;invalidateMap();const g=groups.get(el('ctSeries').value);if(!g){if(groups.size)el('ctInfo').textContent=`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar.`;notifyState();return;}
   try{if(!S){el('ctInfo').textContent=`${g.slices.length} cortes cargados. Carga SPECT para revisar el marco espacial.`;notifyState();return;}CT=Lab95.prepareCT(g.slices,S);startRegistrationExercise();el('ctInfo').textContent=`${g.slices.length} cortes · ${g.slices[0].cols} × ${g.slices[0].rows} · mismo marco espacial. Registro pendiente de revisión.`;el('confirm95').disabled=!V;renderLive();}
@@ -122,11 +122,18 @@
  for(const id of ['rx95','ry95','rz95'])el(id).oninput=()=>{mostrarOffsets95();invalidateMap();renderLive();};
  // Los campos numericos siguen existiendo, ocultos, porque son el estado que lee el resto
  // del motor; los botones solo los empujan de milimetro en milimetro dentro de sus limites.
- for(const boton of document.querySelectorAll('[data-eje95]'))boton.onclick=()=>{
-  const campo=el(boton.dataset.eje95),paso=+boton.dataset.paso95;
-  campo.value=Math.max(+campo.min,Math.min(+campo.max,(+campo.value||0)+paso));
-  campo.dispatchEvent(new Event('input',{bubbles:true}));
- };
+ // El desfase del ejercicio es de decenas de milimetros: mantener pulsado repite el paso,
+ // primero despacio y despues rapido, para no exigir cincuenta clics por eje.
+ function empujar(boton){const campo=el(boton.dataset.eje95),paso=+boton.dataset.paso95;campo.value=Math.max(+campo.min,Math.min(+campo.max,(+campo.value||0)+paso));campo.dispatchEvent(new Event('input',{bubbles:true}));}
+ for(const boton of document.querySelectorAll('[data-eje95]')){
+  let temporizador=null,inicio=0;
+  const soltar=()=>{clearTimeout(temporizador);temporizador=null;};
+  const repetir=()=>{empujar(boton);const llevado=performance.now()-inicio;temporizador=setTimeout(repetir,llevado>1800?35:llevado>700?80:160);};
+  boton.addEventListener('pointerdown',ev=>{if(ev.button!==0)return;ev.preventDefault();inicio=performance.now();empujar(boton);temporizador=setTimeout(repetir,400);});
+  for(const tipo of ['pointerup','pointerleave','pointercancel','blur'])boton.addEventListener(tipo,soltar);
+  // El clic de teclado (Enter o espacio) llega con detail 0 y no pasa por pointerdown.
+  boton.addEventListener('click',ev=>{if(ev.detail===0)empujar(boton);});
+ }
  async function confirmRegistration(){
   if(!V){message('Genera la FBP antes de confirmar el registro.');return false;}if(!CT){message('Elige una serie TC antes de confirmar el registro.');return false;}if(!validOffsets()){message('Revisa los desplazamientos X, Y y Z.');return false;}invalidateMap();const epoch=mapEpoch,n=S.n,off=offsets(),map=new Float32Array(n*n*n).fill(NaN);el('confirm95').disabled=true;let valid=0;
   for(let z=0;z<n;z++){if(epoch!==mapEpoch)return;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const hu=Lab95.sampleCT(CT,Lab95.point(S,x,y,z,off));if(!Number.isFinite(hu))continue;const h=Math.max(-1000,Math.min(3000,hu));map[z*n*n+y*n+x]=h<=0?.15*(1+h/1000):.15+.0001*h;valid++;}if(z%4===0){message(`Preparando mapa μ: ${z+1}/${n}`);await new Promise(r=>setTimeout(r,0));}}

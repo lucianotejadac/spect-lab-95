@@ -32,25 +32,42 @@
   }];
   const spectHash=s?paratiroidesHash(s.frame):null,spectOk=spectHash===d.nm.marco,spectOtra=spectHash===faseDatos(otraFase(f)).nm.marco;
   const ctHash=ct?paratiroidesHash(ct.marco):null,ctOk=spectOk&&ctHash===d.ct.marco;
-  const recon=entradas().filter(reconstruccionValida),exportada=recon.find(r=>r.exportado&&nombreCoincide(r.exportado.nombre,f));
+  const todas=entradas(),recon=todas.filter(reconstruccionValida),exportada=recon.find(r=>r.exportado&&nombreCoincide(r.exportado.nombre,f));
   if(exportada&&spectOk){hechos.exportado=true;hechos.archivo=exportada.exportado.archivo;guardar();}
+  // Lo que el motor le dijo al alumno al elegir el CT, para traducirlo a este caso.
+  const ctInfo=e('ctInfo').textContent,ctSeries=e('ctSeries'),ctSinElegir=!ctSeries.disabled&&ctSeries.value===''&&ctSeries.options.length>1;
+  let problemaCt=null;
+  if(spectOk&&/marcos espaciales distintos/.test(ctInfo))problemaCt=`El simulador rechazó ese CT: es el de la fase ${PARATIROIDES_NOMBRE_FASE[otraFase(f)]}. El SPECT ${nombreFase} solo comparte marco de referencia con el CT ${nombreFase}; carga la otra carpeta.`;
+  else if(spectOk&&ctSinElegir)problemaCt='Los archivos ya se leyeron. Falta elegir la serie en la lista «Serie TC encontrada».';
+  else if(spectOk&&ct&&!ctOk)problemaCt='El CT cargado no corresponde a esta fase.';
+  else if(!s&&(!ctSeries.disabled||/cortes cargados/.test(ctInfo)))problemaCt='Ya hay un CT leído. Está bien: al cargar el SPECT se emparejan solos; si el marco no coincide, el simulador te lo dirá.';
+  const notaCt=ctOk&&ct.cortes!==d.ct.cortes?` Se cargaron ${ct.cortes} cortes y la serie tiene ${d.ct.cortes}: revisa que la carpeta esté completa.`:'';
+  // Con el mapa preparado se puede decir cuanto quedo desalineado: la alineacion real es
+  // cero, porque el ejercicio inyecto el desfase sobre coordenadas ya compartidas.
+  const residuo=v.mu&&spectOk?[Math.abs(+e('rx95').value||0),Math.abs(+e('ry95').value||0)]:null;
+  const textoRegistro=(caso().registro?caso().registro+' ':'')+'El ejercicio desplaza el CT algunos centímetros en X e Y. Muévelo con los botones + y − (mantén pulsado para ir rápido) hasta que el contorno del cuello coincida con la emisión en los tres planos, y después «Confirmar registro y preparar mapa μ» o «Siguiente». Con el mapa preparado, la OSEM de referencia 1×1 parte sola.';
+  const detalleRegistro=residuo?(Math.max(...residuo)<=3?`Registro confirmado con un residuo de ${residuo[0]} mm en X y ${residuo[1]} mm en Y: muy bien, dentro de un vóxel.`:Math.max(...residuo)<=8?`Registro confirmado con un residuo de ${residuo[0]} mm en X y ${residuo[1]} mm en Y, del orden de dos vóxeles. Aceptable para la AC; si quieres afinar, ajusta y confirma de nuevo.`:`Registro confirmado con un residuo de ${residuo[0]} mm en X y ${residuo[1]} mm en Y. Es bastante: el mapa μ quedará corrido respecto de la emisión. Ajusta con + y − y vuelve a confirmar; el mapa se recalcula.`):null;
+  const esperandoBase=!!v.mu&&spectOk&&!todas.some(r=>r.kind==='OSEM');
+  // Exportaciones que no sirven: la 1x1 de referencia, o la buena pero sin nombre.
+  // Se juzga la exportacion mas reciente: es la que el alumno acaba de hacer.
+  const exportadaMal=!exportada?todas.filter(r=>r.exportado&&!(reconstruccionValida(r)&&nombreCoincide(r.exportado.nombre,f))).sort((a,b)=>String(b.exportado.cuando).localeCompare(String(a.exportado.cuando)))[0]:null;
+  const problemaExportar=exportadaMal?(!reconstruccionValida(exportadaMal)?`Exportaste «${exportadaMal.label}», que no es la receta del curso. Exporta la OSEM ${receta.iteraciones}×${receta.subconjuntos} con AC.`:`Exportaste la reconstrucción correcta pero ${exportadaMal.exportado.nombre?`con el nombre «${exportadaMal.exportado.nombre}»`:'sin nombre'}. Vuelve a exportar con «${nombre}»: el visor lo lee del propio archivo.`):null;
   const lista=[
    {id:'spect',titulo:`Cargar las proyecciones SPECT ${nombreFase}`,hecho:spectOk,resaltar:['spectFile'],paso:0,
-    texto:`En el paso 1, «Seleccionar archivo DICOM» del bloque SPECT. Es un solo archivo con ${d.nm.frames} imágenes: ${d.nm.vistas} vistas por cabezal cada ${d.nm.pasoGrados}°, dos cabezales y dos ventanas de energía. En la carpeta del caso ${estado.caso} es el archivo de la fase ${nombreFase}.`,
-    problema:s&&!spectOk?(spectOtra?`Cargaste el SPECT de la fase ${PARATIROIDES_NOMBRE_FASE[otraFase(f)]}. Este paso pide el ${nombreFase}: cada fase tiene su propio marco de referencia y su propio CT.`:`Ese SPECT no pertenece al caso ${estado.caso}. Revisa que abriste la carpeta correcta.`):null},
+    texto:`En el paso 1, «Seleccionar archivo DICOM» del bloque SPECT. En la carpeta «paratiroides ${estado.caso}» es el ${d.carpetaNm}: un solo archivo, sin extensión, con ${d.nm.frames} imágenes (${d.nm.vistas} vistas por cabezal cada ${d.nm.pasoGrados}°, dos cabezales y dos ventanas de energía).`,
+    problema:s&&!spectOk?(spectOtra?`Cargaste el SPECT de la fase ${PARATIROIDES_NOMBRE_FASE[otraFase(f)]}. Este paso pide el ${nombreFase}: cada fase tiene su propio marco de referencia y su propio CT.`:`Ese SPECT no pertenece al caso ${estado.caso}. Revisa que abriste la carpeta correcta.`):(!s&&problemaCt?problemaCt:null)},
    {id:'ct',titulo:`Cargar el CT ${nombreFase} y elegir su serie`,hecho:ctOk,resaltar:['ctFolder','ctSeries'],paso:0,
-    texto:`«O seleccionar carpeta» del bloque TC, con la carpeta del CT ${nombreFase}: ${d.ct.cortes} cortes de ${d.ct.espesorMm} mm cada ${d.ct.dzMm} mm, píxel de ${d.ct.pixelMm} mm, kernel ${d.ct.kernel}. Después elige la serie en la lista. Si el simulador dice que los marcos espaciales son distintos, tomaste el CT de la otra fase: el SPECT ${nombreFase} solo comparte coordenadas con su propio CT.`,
-    problema:spectOk&&ct&&!ctOk?'El CT cargado no corresponde a esta fase.':null},
+    texto:`«O seleccionar carpeta» del bloque TC, con la carpeta «${d.carpetaCt}»: ${d.ct.cortes} cortes de ${d.ct.espesorMm} mm cada ${d.ct.dzMm} mm, píxel de ${d.ct.pixelMm} mm, kernel ${d.ct.kernel}. Después elige la serie en la lista.${notaCt}`,
+    problema:spectOk?problemaCt:null},
    {id:'fbp',titulo:'Generar la FBP',hecho:!!v.fbp&&spectOk,resaltar:['fbp95'],paso:1,
     texto:'En el paso 2, «Generar FBP» con la ventana de fotopico (99m Technetium) y el filtro rampa. Es la reconstrucción preliminar que sirve para revisar el registro; no lleva corrección de atenuación.'},
-   {id:'registro',titulo:'Revisar el registro y preparar el mapa μ',hecho:!!v.mu&&spectOk,resaltar:['confirm95'],paso:1,
-    texto:'El ejercicio desplaza el CT algunos centímetros en X e Y. Muévelo con los botones + y − hasta que el contorno del cuello coincida con la emisión en los tres planos, y después «Confirmar registro y preparar mapa μ» o «Siguiente». Con el mapa preparado, la OSEM de referencia 1×1 parte sola.'},
+   {id:'registro',titulo:'Revisar el registro y preparar el mapa μ',hecho:!!v.mu&&spectOk,resaltar:['confirm95'],paso:1,texto:textoRegistro,detalle:detalleRegistro},
    {id:'osem',titulo:`Reconstruir con la receta del curso: OSEM ${receta.iteraciones}×${receta.subconjuntos}, AC, gaussiano ${receta.filtroMm} mm`,hecho:recon.length>0&&spectOk,resaltar:['runOsem95'],paso:2,
-    texto:`En el paso 3, marca «Corrección de atenuación», deja «Suavizado final gaussiano» en ${receta.filtroMm} mm, ${receta.iteraciones} iteraciones y ${receta.subconjuntos} subconjuntos, y pulsa «Nueva reconstrucción». La misma receta en las dos fases y en los cinco casos, para que las diferencias que veas sean del paciente y no del procesamiento.`,
+    texto:(esperandoBase?'Primero corre sola la OSEM de referencia 1×1, sin correcciones: espera a que termine. ':'')+`En el paso 3, marca «Corrección de atenuación», deja «Suavizado final gaussiano» en ${receta.filtroMm} mm, ${receta.iteraciones} iteraciones y ${receta.subconjuntos} subconjuntos, y pulsa «Nueva reconstrucción». La misma receta en las dos fases y en los cinco casos, para que las diferencias que veas sean del paciente y no del procesamiento. Cuando termine, compárala con la 1×1 en los dos paneles: ${d.guia}`,
     accion:{etiqueta:'Aplicar la receta',fn:aplicarReceta}},
    {id:'exportar',titulo:`Exportar como «${nombre}»`,hecho:!!hechos.exportado,resaltar:['exportDicom95','exportName95'],paso:3,
-    texto:`En el paso 4, elige la OSEM ${receta.iteraciones}×${receta.subconjuntos} con AC, escribe «${nombre}» en Nombre y descarga. Ese nombre queda dentro del DICOM, en la descripción de la serie: es lo que le permite al visor reconocer qué fase de qué caso le estás dando.`,
-    accion:{etiqueta:'Poner el nombre y abrir el paso 4',fn:()=>prepararExportacion(f)}}
+    texto:`En el paso 4, elige la OSEM ${receta.iteraciones}×${receta.subconjuntos} con AC (no la 1×1 de referencia), escribe «${nombre}» en Nombre y descarga. Ese nombre queda dentro del DICOM, en la descripción de la serie: es lo que le permite al visor reconocer qué fase de qué caso le estás dando.`,
+    problema:problemaExportar,accion:{etiqueta:'Poner el nombre y abrir el paso 4',fn:()=>prepararExportacion(f)}}
   ];
   // Una fase terminada queda terminada: al cargar el SPECT de la otra fase, el simulador
   // descarta esta de la memoria y las comprobaciones en vivo dejarian de cumplirse.
@@ -106,7 +123,11 @@
   const ol=h('ol',{class:'tutorialPasos95'});
   for(const p of lista){
    const li=h('li',{class:p.hecho?'hecho':p===actual?'actual':''},h('span',{class:'marca'},p.hecho?'☑':'☐'),' ',h('span',{},p.titulo));
-   if(p===actual||(p.hecho&&p.id==='equipo')){li.append(h('p',{},p.texto));if(p.problema)li.append(h('p',{class:'tutorialProblema95'},p.problema));
+   if(p===actual||(p.hecho&&p.id==='equipo'))li.append(h('p',{},p.texto));
+   // Un tropiezo se senala donde ocurrio, aunque el alumno vaya saltando pasos.
+   if(!p.hecho&&p.problema)li.append(h('p',{class:'tutorialProblema95'},p.problema));
+   if(p.hecho&&p.detalle)li.append(h('p',{class:'tutorialDetalle95'},p.detalle));
+   if(p===actual){
     const botones=h('div',{class:'tutorialBotones95'});
     if(p.paso!==undefined&&typeof navigate==='function'&&typeof step!=='undefined'&&step!==p.paso)botones.append(h('button',{type:'button',onclick:()=>navigate(p.paso)},`Ir al paso ${p.paso+1}`));
     if(p.accion)botones.append(h('button',{type:'button',onclick:p.accion.fn},p.accion.etiqueta));
