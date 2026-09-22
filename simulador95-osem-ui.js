@@ -90,7 +90,7 @@
   if(!history.length)return;const chosen=['Top','Bottom'].map(row=>history.find(r=>r.id===e('history'+row+'95').value)),shared=Math.max(1e-12,...chosen.filter(r=>r?.kind==='OSEM').map(r=>r.scale)),gain=100/+e('osemWindow95').value;
   for(let r=0;r<2;r++){const entry=chosen[r],row=r?'bottom':'top';if(!entry)continue;e('history'+(r?'Bottom':'Top')+'Info95').textContent=entry.description+' · '+duration(entry.seconds);const n=entry.n;
    {const side=r?'Bottom':'Top',plane=e('history'+side+'Plane95').value,slider=e('history'+side+'Slice95');slider.max=n-1;const index=Math.max(0,Math.min(n-1,+slider.value));slider.value=index;e('history'+side+'Index95').textContent=`${index+1}/${n}`;const canvas=e(row+'View95');canvas.width=n;canvas.height=n;const ctx=canvas.getContext('2d'),im=ctx.createImageData(n,n),scale=entry.kind==='FBP'?entry.scale:shared;
-    for(let v=0;v<n;v++)for(let u=0;u<n;u++){const [x,y,z]=plane==='Axial'?[u,v,index]:plane==='Coronal'?[u,index,v]:[index,u,v],i=(v*n+u)*4,valid=!entry.rows||entry.rows.has(z),value=255*Math.max(0,Math.min(1,entry.data[z*n*n+y*n+x]/scale*gain));for(let k=0;k<3;k++)im.data[i+k]=valid?value:k===2?60:0;im.data[i+3]=255;}ctx.putImageData(im,0,0);
+    for(let v=0;v<n;v++)for(let u=0;u<n;u++){const [x,y,z]=plane==='Axial'?[u,v,index]:plane==='Coronal'?[u,index,v]:[index,u,v],i=(v*n+u)*4,valid=!entry.rows||entry.rows.has(z),tono=color95(entry.data[z*n*n+y*n+x]/scale*gain);for(let k=0;k<3;k++)im.data[i+k]=valid?tono[k]:k===2?60:0;im.data[i+3]=255;}ctx.putImageData(im,0,0);
    }
   }
  }
@@ -105,6 +105,7 @@
  for(const side of ['Top','Bottom'])for(const control of ['Plane95','Slice95'])
   e('history'+side+control).oninput=()=>{if(linked())mirror(side);draw();};
  e('linkPanels95').onchange=()=>{if(linked())mirror('Top');draw();};
+ document.addEventListener('lab95repaint',()=>draw());
  for(const id of ['historyTop95','historyBottom95','osemWindow95'])e(id).oninput=draw;
  e('saveHistory95').onclick=()=>download(new Blob([JSON.stringify(history.map(({data,rawRef,rows,...r})=>({...r,rows:rows?[...rows]:null})),null,2)],{type:'application/json'}),'historial-reconstrucciones.json');
 })();

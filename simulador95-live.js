@@ -97,13 +97,14 @@
    planeCache95.volume=volume;planeCache95.emission=emission;
   }
   el('liveIndex95').textContent=`${index+1}/${n}`;const canvases=['liveA95','liveB95'].map(id=>el(id)),ctx=canvases.map(c=>{if(c.width!==size)c.width=size;if(c.height!==size)c.height=size;return c.getContext('2d');}),im=ctx.map(c=>c.createImageData(size,size)),alpha=+el('blend95').value/100,spectWidth=+el('spectWidth95').value/100,spectLevel=+el('spectLevel95').value/100,width=+el('ctWidth95').value,center=+el('ctLevel95').value;
-  for(let j=0;j<size*size;j++){const i=j*4,em=Math.max(0,Math.min(1,(planeCache95.emission[j]/scale-spectLevel)/spectWidth+.5)),hu=planeCache95.hu[j],gray=255*Math.max(0,Math.min(1,(hu-center)/width+.5)),color=[255*Math.min(1,em*3),255*Math.max(0,Math.min(1,em*3-1)),255*Math.max(0,em*3-2)],a=em>.01?alpha:0;
-   for(let k=0;k<3;k++){im[0].data[i+k]=em*255;im[1].data[i+k]=Number.isFinite(hu)?gray*(1-a)+color[k]*a:(k===2?50:em*255);}for(const q of im)q.data[i+3]=255;
+  for(let j=0;j<size*size;j++){const i=j*4,em=Math.max(0,Math.min(1,(planeCache95.emission[j]/scale-spectLevel)/spectWidth+.5)),hu=planeCache95.hu[j],gray=255*Math.max(0,Math.min(1,(hu-center)/width+.5)),color=color95(em),a=em>.01?alpha:0;
+   for(let k=0;k<3;k++){im[0].data[i+k]=color[k];im[1].data[i+k]=Number.isFinite(hu)?gray*(1-a)+color[k]*a:(k===2?50:color[k]);}for(const q of im)q.data[i+3]=255;
   }ctx.forEach((c,i)=>c.putImageData(im[i],0,0));
   // The attenuation preview and reconstruction grid retain their original size.
   const c=el('mu95');c.width=n;c.height=n;const mc=c.getContext('2d'),mi=mc.createImageData(n,n);
   for(let v=0;v<n;v++)for(let u=0;u<n;u++){const [x,y,z]=coordinates(u,v),j=z*n*n+y*n+x,i=(v*n+u)*4;for(let k=0;k<3;k++)mi.data[i+k]=M&&Number.isFinite(M[j])?255*Math.min(1,M[j]/.4):(k===2?50:0);mi.data[i+3]=255;}mc.putImageData(mi,0,0);
  }
+ document.addEventListener('lab95repaint',()=>renderLive());
  for(const id of ['livePlane95','liveSlice95','blend95'])el(id).oninput=()=>{el('blendValue95').textContent=el('blend95').value+' %';renderLive();};
  const windowPairs=[['spectLevel95','spectLevelNumber95'],['spectWidth95','spectWidthNumber95'],['ctLevel95','ctLevelNumber95'],['ctWidth95','ctWidthNumber95']];
  for(const [slider,number] of windowPairs){

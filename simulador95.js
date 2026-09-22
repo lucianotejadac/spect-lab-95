@@ -15,6 +15,18 @@ $('parameters').addEventListener('change',()=>{dependencies();status('Configurac
 function download(blob,name){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
 $('saveConfig').onclick=()=>{for(const el of $('parameters').querySelectorAll('input[type=number]'))if(!el.disabled&&!el.checkValidity()){el.reportValidity();return;}download(new Blob([JSON.stringify(options(),null,2)],{type:'application/json'}),'configuracion-spect-educativo.json');status('Configuración guardada. No se ha generado una reconstrucción.');};
 $('help').onclick=()=>$('about').showModal();$('closeHelp').onclick=()=>$('about').close();
+// Paletas clasicas de medicina nuclear. Reciben la intensidad ya normalizada entre 0 y 1 y
+// devuelven [r,g,b] de 0 a 255. Solo cambian como se ve el SPECT: ni los valores
+// reconstruidos ni el mapa de atenuacion dependen de esto.
+const PALETAS95={
+ hot:v=>[255*Math.min(1,v*3),255*Math.max(0,Math.min(1,v*3-1)),255*Math.max(0,v*3-2)],
+ arcoiris:v=>{const tramo=Math.min(4,Math.floor(v*5)),t=v*5-tramo;return [[0,0,255*t],[0,255*t,255],[0,255,255*(1-t)],[255*t,255,0],[255,255*(1-t),0]][tramo];},
+ gris:v=>[255*v,255*v,255*v],
+ invertida:v=>[255*(1-v),255*(1-v),255*(1-v)]
+};
+let paleta95=PALETAS95.hot;
+function color95(v){return paleta95(Math.max(0,Math.min(1,v)));}
+$('spectPalette95').onchange=()=>{paleta95=PALETAS95[$('spectPalette95').value]||PALETAS95.hot;document.dispatchEvent(new Event('lab95repaint'));status('Paleta del SPECT: '+$('spectPalette95').selectedOptions[0].textContent+'. Solo cambia la visualización.');};
 // Recuadros y notas que solo explican. Lo que lleva id es estado del estudio (el paso de la
 // reconstruccion, el mapa de atenuacion, los archivos leidos) y se queda siempre a la vista;
 // la caja del paso 2 tampoco se toca porque contiene los controles de la FBP. Se recorre en
