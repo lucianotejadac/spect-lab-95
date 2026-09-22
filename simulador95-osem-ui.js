@@ -1,7 +1,10 @@
 'use strict';
 (()=>{
  const e=id=>document.getElementById(id);let task=null,epoch=0,busy=false,source=null,sourceWindow=null,history=[],serial=0,autoDone=false,autoAttempt='',autoTimer=null;
- e('psf').checked=false;dependencies();
+ // Las opciones que no se muestran quedan apagadas, para que lo que se calcula sea
+ // exactamente lo que se ve; el aire fuera del campo del TC, en cambio, se asume siempre.
+ for(const id of ['scatter','psf','distance','axial','scatterFilter','fbpStart'])e(id).checked=false;
+ e('outsideAir95').checked=true;dependencies();
  const tell=t=>{e('osemStatus95').textContent=t;status(t);};
  const duration=s=>s==null?'No registrado':s<60?s.toFixed(1)+' s':Math.floor(s/60)+' min '+(s%60).toFixed(1)+' s';
  function stop(){epoch++;if(task)task.terminate();task=null;busy=false;e('cancelOsem95').disabled=true;e('runOsem95').disabled=false;}
@@ -26,18 +29,23 @@
   const note=document.createElement('p');note.textContent=r.timing?'Los subprocesos de los trabajadores se solapan cuando hay paralelismo: sus tiempos acumulados no se suman al total transcurrido. En una ejecución reutilizada no se repiten esos subprocesos (0 s).':'El tiempo FBP excluye el suavizado de visualización.';box.append(note);return box;
  }
  function refreshExport95(){
-  const select=e('exportSeries95'),selected=select.value,entries=history.filter(r=>r.kind==='OSEM');
+  const select=e('exportSeries95'),selected=select.value,entries=history.slice();
   select.replaceChildren(...entries.map(r=>new Option(r.label+' · '+duration(r.seconds),r.id)));
   if(entries.some(r=>r.id===selected))select.value=selected;else if(entries.length)select.value=entries.at(-1).id;
   select.disabled=e('exportDicom95').disabled=!entries.length;
-  e('exportInfo95').textContent=entries.length?'Selecciona una reconstrucción terminada. Se guardarán sus opciones aplicadas y los cortes reconstruidos contiguos.':'Primero completa una reconstrucción OSEM en el paso 3.';
+  e('exportInfo95').textContent=entries.length?'Selecciona una reconstrucción terminada, OSEM o FBP. Se guardarán sus opciones aplicadas y los cortes reconstruidos contiguos.':'Primero genera una FBP o completa una reconstrucción OSEM.';
  }
  e('exportDicom95').onclick=()=>{try{
   synchronize();const entry=history.find(r=>r.id===e('exportSeries95').value),s=Lab95Live.get().spect;
-  if(!entry||!s)throw Error('No hay una reconstrucción OSEM disponible.');
-  const blob=buildSpectDicom95(entry,s);
-  download(blob,`spect-${entry.id}-${entry.parameters.iterations}x${entry.parameters.subsets}-${entry.parameters.attenuationCorrection?'ac':'nac'}.dcm`);
-  e('exportInfo95').textContent=`Descarga preparada: ${entry.label}, ${entry.rows.size} cortes, ${(blob.size/1048576).toFixed(1)} MB. Un archivo DICOM NM multiframe, solo SPECT. Se conserva la identificación del estudio original.`;
+  if(!entry||!s)throw Error('No hay una reconstrucción disponible.');
+  // El nombre que escribe el alumno encabeza el archivo y la descripcion de la serie, que es
+  // lo que distingue una reconstruccion de otra en el visor.
+  const nombre=e('exportName95').value.trim().replace(/\s+/g,' ').slice(0,40);
+  const limpio=nombre.replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'').toLowerCase();
+  const receta=entry.kind==='FBP'?'fbp':`${entry.parameters.iterations}x${entry.parameters.subsets}-${entry.parameters.attenuationCorrection?'ac':'nac'}`;
+  const blob=buildSpectDicom95(entry,s,nombre);
+  download(blob,`${limpio?limpio+'-':''}spect-${entry.id}-${receta}.dcm`);
+  e('exportInfo95').textContent=`Descarga preparada: ${entry.label}, ${entry.rows?entry.rows.size:s.n} cortes, ${(blob.size/1048576).toFixed(1)} MB. Un archivo DICOM NM multiframe, solo SPECT. Se conserva la identificación del estudio original.`;
  }catch(err){e('exportInfo95').textContent='No se pudo exportar: '+err.message;}};
  function synchronize(){
   const state=Lab95Live.get(),s=state.spect;

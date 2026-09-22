@@ -8,8 +8,10 @@
  }
  function randomOffset(min,max){const magnitude=Math.round(min+randomUnit()*(max-min));return (randomUnit()<.5?-1:1)*magnitude;}
  function startRegistrationExercise(){
-  const values=[randomOffset(35,70),randomOffset(35,70),randomOffset(20,45)];
+  // El desfase del ejercicio es solo transversal: en Z el SPECT y el TC ya comparten origen.
+  const values=[randomOffset(35,70),randomOffset(35,70),0];
   ['rx95','ry95','rz95'].forEach((id,i)=>el(id).value=values[i]);
+  mostrarOffsets95();
   planeCache95=null;invalidateMap();
  }
  function invalidateMap(){document.dispatchEvent(new Event("lab95osemInvalidate"));mapEpoch++;M=null;el('mu95').hidden=true;el('mapInfo95').textContent='Registro sin confirmar. Mapa de atenuación sin calcular.';el('confirm95').disabled=!V||!CT;}
@@ -80,6 +82,7 @@
  el('smooth95').onchange=updateSmoothing;el('smoothWidth95').onchange=updateSmoothing;
  const offsets=()=>['rx95','ry95','rz95'].map(id=>+el(id).value);
  function validOffsets(){return ['rx95','ry95','rz95'].every(id=>el(id).value!==''&&el(id).checkValidity());}
+ function mostrarOffsets95(){for(const eje of ['rx','ry'])el(eje+'Value95').textContent=(+el(eje+'95').value||0)+' mm';}
  let planeCache95=null;
  function renderLive(){
   if(!V||!S)return;const n=S.n,size=256,index=+el('liveSlice95').value,plane=el('livePlane95').value,off=offsets();if(!validOffsets())return;
@@ -115,14 +118,22 @@
  function setWindow(id,value){el(id+'95').value=value;el(id+'Number95').value=value;}
  el('ctWindow95').onchange=()=>{const preset={bone:[450,1800],soft:[40,400],outline:[-400,1000]}[el('ctWindow95').value];if(preset){setWindow('ctLevel',preset[0]);setWindow('ctWidth',preset[1]);renderLive();}};
  el('resetWindows95').onclick=()=>{setWindow('spectLevel',50);setWindow('spectWidth',100);setWindow('ctLevel',450);setWindow('ctWidth',1800);el('ctWindow95').value='bone';renderLive();};
- for(const id of ['rx95','ry95','rz95'])el(id).oninput=()=>{invalidateMap();renderLive();};
+ for(const id of ['rx95','ry95','rz95'])el(id).oninput=()=>{mostrarOffsets95();invalidateMap();renderLive();};
+ // Los campos numericos siguen existiendo, ocultos, porque son el estado que lee el resto
+ // del motor; los botones solo los empujan de milimetro en milimetro dentro de sus limites.
+ for(const boton of document.querySelectorAll('[data-eje95]'))boton.onclick=()=>{
+  const campo=el(boton.dataset.eje95),paso=+boton.dataset.paso95;
+  campo.value=Math.max(+campo.min,Math.min(+campo.max,(+campo.value||0)+paso));
+  campo.dispatchEvent(new Event('input',{bubbles:true}));
+ };
  async function confirmRegistration(){
   if(!V){message('Genera la FBP antes de confirmar el registro.');return false;}if(!CT){message('Elige una serie TC antes de confirmar el registro.');return false;}if(!validOffsets()){message('Revisa los desplazamientos X, Y y Z.');return false;}invalidateMap();const epoch=mapEpoch,n=S.n,off=offsets(),map=new Float32Array(n*n*n).fill(NaN);el('confirm95').disabled=true;let valid=0;
   for(let z=0;z<n;z++){if(epoch!==mapEpoch)return;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const hu=Lab95.sampleCT(CT,Lab95.point(S,x,y,z,off));if(!Number.isFinite(hu))continue;const h=Math.max(-1000,Math.min(3000,hu));map[z*n*n+y*n+x]=h<=0?.15*(1+h/1000):.15+.0001*h;valid++;}if(z%4===0){message(`Preparando mapa μ: ${z+1}/${n}`);await new Promise(r=>setTimeout(r,0));}}
   if(epoch!==mapEpoch)return false;if(!valid){el('confirm95').disabled=false;message('No hay cobertura TC en la matriz SPECT. Revisa el registro; no se ha confirmado.');return false;}M=map;el('mu95').hidden=false;el('mapInfo95').textContent=`Registro confirmado por el usuario. Mapa μ aproximado (cm⁻¹), ${Math.round(valid/map.length*100)} % de cobertura de la matriz. Azul: sin TC, no utilizable para AC. La FBP continúa sin AC.`;el('confirm95').disabled=false;message('Mapa educativo preparado. Puedes continuar con OSEM en el paso 3.');renderLive();return true;
  }
  el('confirm95').onclick=confirmRegistration;
- function prepareBaselineOptions(){for(const id of ['ac','scatter','psf','distance','axial','scatterFilter','filter','fbpStart','outsideAir95'])el(id).checked=false;el('iterations').value='1';el('subsets').value='1';dependencies();}
+ // outsideAir95 no entra aqui: se asume siempre, no es una opcion que el alumno active.
+ function prepareBaselineOptions(){for(const id of ['ac','scatter','psf','distance','axial','scatterFilter','filter','fbpStart'])el(id).checked=false;el('outsideAir95').checked=true;el('iterations').value='1';el('subsets').value='1';dependencies();}
  let advancing=false;
  async function advanceFromRegistration(){
   if(advancing)return false;advancing=true;el('next').disabled=true;

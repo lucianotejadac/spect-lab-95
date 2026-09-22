@@ -3,9 +3,11 @@
 // PatientAge belongs to the Patient Study module, not to Patient: MicroDicom reconciles
 // series by their study level attributes and refuses to fuse one whose age is missing or
 // differs from the CT's, so it is copied from the projections like the rest.
-function buildSpectDicom95(entry,s){
- const completed=true,volume=entry.data,valid=Array.from({length:s.n},(_,i)=>entry.rows.has(i)),meta={n:s.n,spacing:s.spacing,geometry:s,dicomSource:s.dicomSource,energy:(()=>{const w=s.windows.find(w=>w.id===entry.parameters.energyWindow);return [w.low,w.high];})()},settings={method:"OSEM",iterations:entry.parameters.iterations,subsets:entry.parameters.subsets,ac:entry.parameters.attenuationCorrection,offsets:entry.parameters.registrationOffsets};
- if(entry.kind!=="OSEM"||volume.length!==s.n**3)throw Error("Selecciona una reconstrucción OSEM terminada.");
+function buildSpectDicom95(entry,s,nombre){
+ // La FBP no reserva filas: cubre el volumen entero. Y llega con valores negativos del
+ // filtro rampa, que el NM multiframe, entero sin signo, no puede representar.
+ const completed=true,volume=entry.data,valid=Array.from({length:s.n},(_,i)=>entry.rows?entry.rows.has(i):true),meta={n:s.n,spacing:s.spacing,geometry:s,dicomSource:s.dicomSource,energy:(()=>{const w=s.windows.find(w=>w.id===entry.parameters.energyWindow);return [w.low,w.high];})()},settings={method:entry.kind==='FBP'?'FBP':'OSEM',iterations:entry.parameters.iterations,subsets:entry.parameters.subsets,ac:!!entry.parameters.attenuationCorrection,offsets:entry.parameters.registrationOffsets};
+ if(!['OSEM','FBP'].includes(entry.kind)||volume.length!==s.n**3)throw Error("Selecciona una reconstrucción terminada del historial.");
  if(!completed||!volume||!meta.geometry)throw new Error('No hay un volumen completo con geometría para exportar.');
  const rows=Array.from(valid,(v,i)=>v?i:-1).filter(i=>i>=0).reverse(),n=meta.n,sp=meta.spacing;
  if(!rows.length||rows.some((r,i)=>i&&rows[i-1]-r!==1))throw new Error('La exportación requiere cortes reconstruidos contiguos.');
@@ -23,17 +25,18 @@ function buildSpectDicom95(entry,s){
  const source=meta.dicomSource;if(!source?.StudyInstanceUID||!source?.FrameOfReferenceUID)throw new Error('Faltan referencias del estudio original. Abre el visor actualizado.');
  const uid=()=>{const bytes=crypto.getRandomValues(new Uint8Array(16));let v=0n;for(const b of bytes)v=(v<<8n)|BigInt(b);return '2.25.'+v.toString();},sop=uid(),study=source.StudyInstanceUID,series=uid(),frame=source.FrameOfReferenceUID,klass='1.2.840.10008.5.1.4.1.1.20';
  const now=new Date(),date=now.toISOString().slice(0,10).replaceAll('-',''),time=now.toISOString().slice(11,23).replaceAll(':','');
- let max=0;for(const r of rows)for(let j=0;j<n*n;j++){const v=volume[r*n*n+j];if(!Number.isFinite(v)||v<0)throw new Error('El volumen contiene valores inválidos.');max=Math.max(max,v);}
+ let max=0,recortados=0;for(const r of rows)for(let j=0;j<n*n;j++){const v=volume[r*n*n+j];if(!Number.isFinite(v))throw new Error('El volumen contiene valores inválidos.');if(v<0)recortados++;else max=Math.max(max,v);}
  const slopeText=(max?max/65535:1).toPrecision(10),slope=Number(slopeText),pixel=new Uint8Array(rows.length*n*n*2),pv=new DataView(pixel.buffer);
- rows.forEach((r,k)=>{for(let j=0;j<n*n;j++)pv.setUint16((k*n*n+j)*2,Math.min(65535,Math.round(volume[r*n*n+j]/slope)),true);});
+ rows.forEach((r,k)=>{for(let j=0;j<n*n;j++)pv.setUint16((k*n*n+j)*2,Math.max(0,Math.min(65535,Math.round(volume[r*n*n+j]/slope))),true);});
  const ds=v=>Number(v).toPrecision(10),position=[meta.geometry.origin[0]-(n-1)*sp/2,meta.geometry.origin[1]-(n-1)*sp/2,meta.geometry.z0-rows[0]*sp].map(ds);
- const provenance={parameters:entry.parameters,reconstructionSeconds:entry.seconds,completedAt:entry.completedAt,method:settings.method,iterations:settings.iterations,subsets:settings.subsets,attenuationCorrection:settings.ac,ctOffsetsMM:settings.offsets,originalRowsZeroBased:rows,units:'relative arbitrary units',geometry:'Experimental approximate geometry; original frame of reference; not clinically validated',encoding:'uint16; global rescale slope; ascending patient Z',quantizationMaxError:slope/2};
- const derivation=`EXPERIMENTAL SPECT; ${settings.method}; iterations=${settings.iterations}; subsets=${settings.subsets}; AC=${settings.ac?'CT approximate':'none'}; original rows ${rows.at(-1)+1}-${rows[0]+1}. Relative units. Geometry not clinically validated. Original study/patient/frame preserved. No CT pixels included.`;
+ const provenance={parameters:entry.parameters,reconstructionSeconds:entry.seconds,completedAt:entry.completedAt,method:settings.method,iterations:settings.iterations,subsets:settings.subsets,attenuationCorrection:settings.ac,ctOffsetsMM:settings.offsets,originalRowsZeroBased:rows,units:'relative arbitrary units',geometry:'Experimental approximate geometry; original frame of reference; not clinically validated',encoding:'uint16; global rescale slope; ascending patient Z',quantizationMaxError:slope/2,label:nombre||null,negativeVoxelsClampedToZero:recortados};
+ const receta=settings.method==='FBP'?'FBP':`OSEM; iterations=${settings.iterations}; subsets=${settings.subsets}`;
+ const derivation=`EXPERIMENTAL SPECT; ${receta}; AC=${settings.ac?'CT approximate':'none'}; original rows ${rows.at(-1)+1}-${rows[0]+1}. Relative units.${recortados?` ${recortados} negative voxels clamped to zero.`:''} Geometry not clinically validated. Original study/patient/frame preserved. No CT pixels included.`;
  const E=element,S=sequence,decode=b64=>Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
  const rw=concat([S(0x0040,0x08ea,[concat([E(8,0x0100,'SH','1'),E(8,0x0102,'SH','UCUM'),E(8,0x0104,'LO','no units')])]),E(0x0040,0x9210,'SH','RELATIVE'),E(0x0040,0x9211,'US',65535),E(0x0040,0x9216,'US',0),E(0x0040,0x9224,'FD',0),E(0x0040,0x9225,'FD',slope)]);
  const dataset=concat([
  E(8,5,'CS','ISO_IR 192'),E(8,8,'CS',['DERIVED','PRIMARY','RECON TOMO','EMISSION']),E(8,0x16,'UI',klass),E(8,0x18,'UI',sop),
- E(8,0x20,'DA',source.StudyDate),E(8,0x23,'DA',date),E(8,0x30,'TM',source.StudyTime),E(8,0x33,'TM',time),E(8,0x50,'SH',source.AccessionNumber),E(8,0x60,'CS','NM'),E(8,0x70,'LO','Local SPECT prototype'),E(8,0x90,'PN',''),E(8,0x0201,'SH','+0000'),E(8,0x1030,'LO',source.StudyDescription||''),E(8,0x103e,'LO',`EXPERIMENTAL SPECT ${settings.method} ${settings.ac?'AC':'NAC'}`),E(8,0x2111,'ST',derivation),S(8,0x2112,[concat([E(8,0x1150,'UI',source.SOPClassUID),E(8,0x1155,'UI',source.SOPInstanceUID)])]),
+ E(8,0x20,'DA',source.StudyDate),E(8,0x23,'DA',date),E(8,0x30,'TM',source.StudyTime),E(8,0x33,'TM',time),E(8,0x50,'SH',source.AccessionNumber),E(8,0x60,'CS','NM'),E(8,0x70,'LO','Local SPECT prototype'),E(8,0x90,'PN',''),E(8,0x0201,'SH','+0000'),E(8,0x1030,'LO',source.StudyDescription||''),E(8,0x103e,'LO',`${nombre?nombre+' · ':''}EXPERIMENTAL SPECT ${settings.method} ${settings.ac?'AC':'NAC'}`),E(8,0x2111,'ST',derivation),S(8,0x2112,[concat([E(8,0x1150,'UI',source.SOPClassUID),E(8,0x1155,'UI',source.SOPInstanceUID)])]),
  E(0x0010,0x0010,'PN',source.PatientName),E(0x0010,0x0020,'LO',source.PatientID),E(0x0010,0x0030,'DA',source.PatientBirthDate),E(0x0010,0x0040,'CS',source.PatientSex),E(0x0010,0x1010,'AS',source.PatientAge),
  E(0x0011,0x0010,'LO','LOCAL_SPECT_PROTOTYPE'),E(0x0011,0x1010,'UT',JSON.stringify(provenance)),
  E(0x0018,0x0050,'DS',ds(sp)),E(0x0018,0x0070,'IS',''),E(0x0018,0x0088,'DS',ds(sp)),E(0x0018,0x1020,'LO','SPECT-PROTOTYPE-1'),E(0x0018,0x1100,'DS',ds(n*sp)),E(0x0018,0x1210,'SH',settings.method),E(0x0018,0x5020,'LO',`${settings.method} ${settings.iterations} iterations ${settings.subsets} subsets`),E(0x0018,0x5100,'CS',source.PatientPosition||''),
