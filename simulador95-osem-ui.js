@@ -14,7 +14,9 @@
  e('outsideAir95').onchange=()=>{autoAttempt='';changed();};e('osemScatter95').onchange=changed;
  e('cancelOsem95').onclick=()=>{stop();tell('Cálculo detenido. El historial conserva solo las reconstrucciones terminadas.');};
  function summarize(o){return `${o.iterations}×${o.subsets} · inicio ${o.initialization==='uniform'?'uniforme':'FBP'} · AC ${o.attenuationCorrection?'sí':'no'} · dispersión ${o.scatter?'peso '+o.scatterWeight:'no'} · PSF ${o.resolutionRecovery?o.psfFwhm100+' mm a 100 mm, intrínseca '+o.psfIntrinsic+' mm':'no'} · distancia ${o.distanceDependent?'por órbita':'constante'} · axial ${o.axialRecovery?'3D':'no'} · suavizado dispersión ${o.scatterSmoothing?o.scatterFwhm+' mm':'no'} · filtro final ${o.postFilter?o.postFilterFWHMmm+' mm':'no'}`;}
- function addEntry(entry){entry.id='r'+(++serial);history.push(entry);refreshLists();return entry.id;}
+ function addEntry(entry){entry.id='r'+(++serial);history.push(entry);refreshLists();document.dispatchEvent(new Event('lab95state'));return entry.id;}
+ // Lectura del historial para el tutorial: que se reconstruyo, con que opciones y si se exporto.
+ window.Lab95Osem={entradas:()=>history.map(r=>({id:r.id,kind:r.kind,label:r.label,parameters:r.parameters,cortes:r.rows?r.rows.size:r.n,exportado:r.exportado||null}))};
  function refreshLists(){
   refreshExport95();
   for(const id of ['historyTop95','historyBottom95']){const selected=e(id).value;e(id).replaceChildren(...history.map(r=>new Option(r.label+' · '+duration(r.seconds),r.id)));if(history.some(r=>r.id===selected))e(id).value=selected;}
@@ -43,8 +45,9 @@
   const nombre=e('exportName95').value.trim().replace(/\s+/g,' ').slice(0,40);
   const limpio=nombre.replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'').toLowerCase();
   const receta=entry.kind==='FBP'?'fbp':`${entry.parameters.iterations}x${entry.parameters.subsets}-${entry.parameters.attenuationCorrection?'ac':'nac'}`;
-  const blob=buildSpectDicom95(entry,s,nombre);
-  download(blob,`${limpio?limpio+'-':''}spect-${entry.id}-${receta}.dcm`);
+  const blob=buildSpectDicom95(entry,s,nombre),archivo=`${limpio?limpio+'-':''}spect-${entry.id}-${receta}.dcm`;
+  download(blob,archivo);
+  entry.exportado={archivo,nombre,cuando:new Date().toISOString()};document.dispatchEvent(new Event('lab95state'));
   e('exportInfo95').textContent=`Descarga preparada: ${entry.label}, ${entry.rows?entry.rows.size:s.n} cortes, ${(blob.size/1048576).toFixed(1)} MB. Un archivo DICOM NM multiframe, solo SPECT. Se conserva la identificación del estudio original.`;
  }catch(err){e('exportInfo95').textContent='No se pudo exportar: '+err.message;}};
  function synchronize(){

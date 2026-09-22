@@ -23,8 +23,8 @@
  el('new').addEventListener('click',resetLive);
  async function loadSpect(f){
   if(!f)return;clearResults();S=null;CT=null;el('fbp95').disabled=true;el('energy95').disabled=true;const epoch=++spEpoch;el('caseName').textContent='Estudio importado';message('Leyendo proyecciones SPECT…');
-  try{const d=await Lab95.read(f);if(epoch!==spEpoch)return;S=Lab95.spect(d);el('energy95').replaceChildren(...S.windows.map(w=>new Option(`${w.id}: ${w.low.toFixed(2)}–${w.high.toFixed(2)} keV`,w.id)));el('energy95').disabled=false;el('fbp95').disabled=false;el('spectInfo').textContent=`${f.name} · ${S.n} × ${S.n} · ${S.frames} imágenes · ${S.windows.length} ventanas. Píxeles y geometría de proyección cargados.`;el('caseInfo').textContent='Estudio local: FBP y registro disponibles en el paso 2.';selectCT();message('SPECT listo. Selecciona la ventana de fotopico y genera la FBP en el paso 2.');}
-  catch(e){if(epoch!==spEpoch)return;S=null;el('spectInfo').textContent='No cargado: '+e.message;message(e.message);}
+  try{const d=await Lab95.read(f);if(epoch!==spEpoch)return;S=Lab95.spect(d);el('energy95').replaceChildren(...S.windows.map(w=>new Option(`${w.id}: ${w.low.toFixed(2)}–${w.high.toFixed(2)} keV`,w.id)));el('energy95').disabled=false;el('fbp95').disabled=false;el('spectInfo').textContent=`${f.name} · ${S.n} × ${S.n} · ${S.frames} imágenes · ${S.windows.length} ventanas. Píxeles y geometría de proyección cargados.`;el('caseInfo').textContent='Estudio local: FBP y registro disponibles en el paso 2.';selectCT();message('SPECT listo. Selecciona la ventana de fotopico y genera la FBP en el paso 2.');notifyState();}
+  catch(e){if(epoch!==spEpoch)return;S=null;el('spectInfo').textContent='No cargado: '+e.message;message(e.message);notifyState();}
  }
  el('spectFile').onchange=()=>{const f=el('spectFile').files[0];if(!f)return;el('spectFolder').value='';spectCandidates=[];el('spectSeries').replaceChildren(new Option('Archivo seleccionado directamente',''));el('spectSeries').disabled=true;loadSpect(f);};
  async function scanStudyFolder(files){
@@ -46,9 +46,10 @@
    if(!groups.size)throw Error('No hay TC compatible. '+lastError);el('ctSeries').add(new Option('Elige una serie TC…',''));for(const [key,g] of [...groups].sort((a,b)=>b[1].slices.length-a[1].slices.length))el('ctSeries').add(new Option(`${g.name} · ${g.slices.length} cortes`,key));el('ctSeries').value='';el('ctSeries').disabled=false;loadingCT=false;el('ctInfo').textContent=`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar. ${omitted} archivo(s) omitidos.`;message('Carpeta o archivos TC examinados. Elige una serie.');
   }catch(e){if(epoch!==ctEpoch)return;groups.clear();CT=null;el('ctInfo').textContent=e.message;message(e.message);}finally{if(epoch===ctEpoch){loadingCT=false;el('fbp95').disabled=!S;}}
  }
- function selectCT(){CT=null;invalidateMap();const g=groups.get(el('ctSeries').value);if(!g){if(groups.size)el('ctInfo').textContent=`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar.`;return;}
-  try{if(!S){el('ctInfo').textContent=`${g.slices.length} cortes cargados. Carga SPECT para revisar el marco espacial.`;return;}CT=Lab95.prepareCT(g.slices,S);startRegistrationExercise();el('ctInfo').textContent=`${g.slices.length} cortes · ${g.slices[0].cols} × ${g.slices[0].rows} · mismo marco espacial. Registro pendiente de revisión.`;el('confirm95').disabled=!V;renderLive();}
+ function selectCT(){CT=null;invalidateMap();const g=groups.get(el('ctSeries').value);if(!g){if(groups.size)el('ctInfo').textContent=`${groups.size} serie(s) TC encontrada(s). Elige cuál cargar.`;notifyState();return;}
+  try{if(!S){el('ctInfo').textContent=`${g.slices.length} cortes cargados. Carga SPECT para revisar el marco espacial.`;notifyState();return;}CT=Lab95.prepareCT(g.slices,S);startRegistrationExercise();el('ctInfo').textContent=`${g.slices.length} cortes · ${g.slices[0].cols} × ${g.slices[0].rows} · mismo marco espacial. Registro pendiente de revisión.`;el('confirm95').disabled=!V;renderLive();}
   catch(e){el('ctInfo').textContent=e.message;renderLive();}
+  notifyState();
  }
  el('ctFiles').onchange=()=>load([...el('ctFiles').files]);el('ctFolder').onchange=()=>scanStudyFolder([...el('ctFolder').files]);el('ctSeries').onchange=selectCT;
  for(const id of ['energy95','ramp95'])el(id).onchange=()=>{invalidate();message('Selección modificada. Genera de nuevo la reconstrucción preliminar.');};
@@ -58,7 +59,7 @@
   fbpStarted=performance.now();const ramp=el('ramp95').checked;const url=URL.createObjectURL(new Blob([Lab95.workerSource],{type:'text/javascript'}));worker=new Worker(url);URL.revokeObjectURL(url);
   worker.onerror=e=>{stop();message('Error del cálculo: '+e.message);};
   worker.onmessage=({data:q})=>{if(q.error){stop();message(q.error);return;}if(q.progress){el('progress95').max=q.total;el('progress95').value=q.progress;message(`Calculando ${ramp?'FBP':'retroproyección sin filtrar'}: corte ${q.progress}/${q.total}`);return;}
-   if(q.volume){fbpTimings=q.fbpTimings;fbpSeconds=(performance.now()-fbpStarted)/1000;V=q.volume;stop();const sample=[];for(let i=0;i<V.length;i+=7)if(V[i]>0)sample.push(V[i]);sample.sort((a,b)=>a-b);scale=sample[Math.floor(sample.length*.995)]||1;el('liveSlice95').max=S.n-1;el('liveSlice95').value=Math.floor(S.n/2);el('registration95').hidden=false;el('empty').hidden=true;el('confirm95').disabled=!CT;el('fbpTitle95').textContent=ramp?'FBP · filtro rampa':'Retroproyección sin filtrar';el('mode').textContent='Estudio cargado · reconstrucción preliminar';message('Volumen preliminar calculado. Revisa el registro en los tres planos.');displayVolume=V;renderLive();updateSmoothing();}
+   if(q.volume){fbpTimings=q.fbpTimings;fbpSeconds=(performance.now()-fbpStarted)/1000;V=q.volume;stop();const sample=[];for(let i=0;i<V.length;i+=7)if(V[i]>0)sample.push(V[i]);sample.sort((a,b)=>a-b);scale=sample[Math.floor(sample.length*.995)]||1;el('liveSlice95').max=S.n-1;el('liveSlice95').value=Math.floor(S.n/2);el('registration95').hidden=false;el('empty').hidden=true;el('confirm95').disabled=!CT;el('fbpTitle95').textContent=ramp?'FBP · filtro rampa':'Retroproyección sin filtrar';el('mode').textContent='Estudio cargado · reconstrucción preliminar';message('Volumen preliminar calculado. Revisa el registro en los tres planos.');displayVolume=V;renderLive();updateSmoothing();notifyState();}
   };worker.postMessage({n:S.n,views:S.views,data:S.data,window:+el('energy95').value,ramp});
  };
  async function updateSmoothing(){
@@ -129,7 +130,7 @@
  async function confirmRegistration(){
   if(!V){message('Genera la FBP antes de confirmar el registro.');return false;}if(!CT){message('Elige una serie TC antes de confirmar el registro.');return false;}if(!validOffsets()){message('Revisa los desplazamientos X, Y y Z.');return false;}invalidateMap();const epoch=mapEpoch,n=S.n,off=offsets(),map=new Float32Array(n*n*n).fill(NaN);el('confirm95').disabled=true;let valid=0;
   for(let z=0;z<n;z++){if(epoch!==mapEpoch)return;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const hu=Lab95.sampleCT(CT,Lab95.point(S,x,y,z,off));if(!Number.isFinite(hu))continue;const h=Math.max(-1000,Math.min(3000,hu));map[z*n*n+y*n+x]=h<=0?.15*(1+h/1000):.15+.0001*h;valid++;}if(z%4===0){message(`Preparando mapa μ: ${z+1}/${n}`);await new Promise(r=>setTimeout(r,0));}}
-  if(epoch!==mapEpoch)return false;if(!valid){el('confirm95').disabled=false;message('No hay cobertura TC en la matriz SPECT. Revisa el registro; no se ha confirmado.');return false;}M=map;el('mu95').hidden=false;el('mapInfo95').textContent=`Registro confirmado por el usuario. Mapa μ aproximado (cm⁻¹), ${Math.round(valid/map.length*100)} % de cobertura de la matriz. Azul: sin TC, no utilizable para AC. La FBP continúa sin AC.`;el('confirm95').disabled=false;message('Mapa educativo preparado. Puedes continuar con OSEM en el paso 3.');renderLive();return true;
+  if(epoch!==mapEpoch)return false;if(!valid){el('confirm95').disabled=false;message('No hay cobertura TC en la matriz SPECT. Revisa el registro; no se ha confirmado.');return false;}M=map;el('mu95').hidden=false;el('mapInfo95').textContent=`Registro confirmado por el usuario. Mapa μ aproximado (cm⁻¹), ${Math.round(valid/map.length*100)} % de cobertura de la matriz. Azul: sin TC, no utilizable para AC. La FBP continúa sin AC.`;el('confirm95').disabled=false;message('Mapa educativo preparado. Puedes continuar con OSEM en el paso 3.');renderLive();notifyState();return true;
  }
  el('confirm95').onclick=confirmRegistration;
  // outsideAir95 no entra aqui: se asume siempre, no es una opcion que el alumno active.
@@ -140,5 +141,11 @@
   try{if(!await confirmRegistration())return false;prepareBaselineOptions();el('osemStatus95').textContent='Preparando OSEM de referencia 1×1, sin correcciones ni filtros…';message('Registro confirmado. Iniciando OSEM de referencia 1×1 sin correcciones ni filtros.');navigate(2);return true;}
   finally{advancing=false;if(step===1)el('next').disabled=false;}
  }
-window.Lab95Live={get:()=>({spect:S,fbpSeconds,fbpTimings,fbpSmoothingSeconds,fbp:V,fbpDisplay:displayVolume||V,fbpLabel:el('fbpTitle95').textContent,mu:M,window:+el('energy95').value,scale}),confirmRegistration,prepareBaselineOptions,advanceFromRegistration};
+// Resumen del TC preparado, para quien necesite saber que se cargo sin tocar los pixeles.
+function ctSummary(){if(!CT)return null;const a=CT.slices;return {cortes:a.length,marco:a[0].frame,pixelMm:a[0].sp[0],dzMm:a.length>1?a[1].pos[2]-a[0].pos[2]:0,nombre:a[0].name};}
+window.Lab95Live={get:()=>({spect:S,fbpSeconds,fbpTimings,fbpSmoothingSeconds,fbp:V,fbpDisplay:displayVolume||V,fbpLabel:el('fbpTitle95').textContent,mu:M,window:+el('energy95').value,scale,ct:ctSummary(),registro:!!V&&!el('registration95').hidden}),confirmRegistration,prepareBaselineOptions,advanceFromRegistration};
+// Cualquier cambio de estado que a un tutorial le interese observar: carga, FBP, mapa.
+function notifyState(){document.dispatchEvent(new Event('lab95state'));}
+for(const id of ['spectFile','ctFiles','ctFolder','ctSeries'])el(id).addEventListener('change',()=>setTimeout(notifyState,0));
+document.addEventListener('lab95osemInvalidate',()=>setTimeout(notifyState,0));
 })();

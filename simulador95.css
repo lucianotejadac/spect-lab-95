@@ -51,6 +51,39 @@
 .comparePair95 canvas{display:block;width:100%;height:var(--mpr-height95,300px);object-fit:contain;background:#000;image-rendering:pixelated}
 .panelControls95{display:flex;align-items:center;gap:8px;margin:3px 0}.panelControls95 label{display:flex;align-items:center;gap:4px;min-width:0}.panelControls95 label:last-child{flex:1}.panelControls95 input{width:100%;min-width:30px}.panelControls95 output{white-space:nowrap}
 .workspace.sinLateral95{grid-template-columns:minmax(0,1fr)}
+/* Tutorial de paratiroides: tercera columna del area de trabajo, solo cuando esta abierto. */
+.workspace.conTutorial95{grid-template-columns:235px minmax(0,1fr) 330px}
+.workspace.conTutorial95.sinLateral95{grid-template-columns:minmax(0,1fr) 330px}
+.tutorial95{background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;padding:6px 8px;overflow:auto;min-height:0;font-size:12px;line-height:1.45}
+.tutorialCabecera95{display:flex;align-items:center;justify-content:space-between;gap:6px;background:linear-gradient(90deg,#000080,#1084d0);color:#fff;padding:4px 7px;margin:-6px -8px 8px;font-weight:bold}
+.tutorialMini95{padding:1px 6px;min-height:0;font-size:11px}
+.tutorialTitulo95{font-weight:bold;margin:4px 0 2px}
+.tutorialResumen95{margin:0 0 8px;color:#333}
+.tutorial95 details{margin:6px 0;border:1px solid #808080;background:#dcdcdc;padding:4px 7px}
+.tutorial95 summary{cursor:pointer;color:navy;font-weight:bold}
+.tutorial95 h4{margin:8px 0 2px;font-size:12px}
+.tutorial95 ul{padding-left:16px;margin:4px 0}
+.tutorialNota95{font-size:11px;color:#333;border-left:3px solid #808080;padding-left:7px;margin:8px 0}
+.tutorialFases95{display:flex;gap:4px;margin:8px 0 4px}
+.tutorialFases95 button{flex:1;padding:4px 6px;min-height:0}
+.tutorialFases95 button[aria-pressed=true]{font-weight:bold;background:#fff;border-color:#404040 #fff #fff #404040;box-shadow:none}
+.tutorialPasos95{list-style:none;padding:0;margin:4px 0}
+.tutorialPasos95 li{padding:4px 6px;margin:2px 0;color:#444}
+.tutorialPasos95 li.hecho{color:#006400}
+.tutorialPasos95 li.actual{background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;color:#000;font-weight:bold}
+.tutorialPasos95 li.actual p{font-weight:normal;margin:6px 0 0}
+.tutorialProblema95{color:#8b0000!important;border-left:3px solid #c00;padding-left:7px}
+.tutorialBotones95{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tutorialBotones95 button{font-weight:normal;padding:3px 8px;min-height:0}
+.tutorialCasos95{display:flex;flex-direction:column;gap:5px;margin:8px 0}
+.tutorialCasos95 button{display:flex;gap:8px;align-items:baseline;text-align:left;padding:6px 8px}
+.tutorialCasos95 button span{font-weight:normal;font-size:11px}
+.tutorialCierre95{margin-top:10px;padding:6px 8px;border:2px solid;border-color:#fff #404040 #404040 #fff;background:#d4d0c8}
+.tutorialCierre95 button,.tutorialEnlace95{display:block;width:100%;margin:6px 0;text-align:center}
+.tutorialEnlace95{background:#000080;color:#fff;padding:7px;text-decoration:none;font-weight:bold;border:2px solid;border-color:#fff #404040 #404040 #fff}
+/* El control que toca usar ahora. */
+.tutorialResaltado95{outline:3px solid #ff00ff;outline-offset:2px;animation:tutorialLatido95 1.4s ease-in-out infinite}
+@keyframes tutorialLatido95{0%,100%{outline-color:#ff00ff}50%{outline-color:#800080}}
 /* label{display:block} de la hoja gana, por origen, al [hidden] del navegador: sin esto las
    etiquetas marcadas como ocultas se seguirian viendo. */
 [hidden]{display:none!important}
