@@ -27,13 +27,15 @@ const PALETAS95={
 let paleta95=PALETAS95.hot;
 function color95(v){return paleta95(Math.max(0,Math.min(1,v)));}
 $('spectPalette95').onchange=()=>{paleta95=PALETAS95[$('spectPalette95').value]||PALETAS95.hot;document.dispatchEvent(new Event('lab95repaint'));status('Paleta del SPECT: '+$('spectPalette95').selectedOptions[0].textContent+'. Solo cambia la visualización.');};
-// Recuadros y notas que solo explican. Lo que lleva id es estado del estudio (el paso de la
-// reconstruccion, el mapa de atenuacion, los archivos leidos) y se queda siempre a la vista;
-// la caja del paso 2 tampoco se toca porque contiene los controles de la FBP. Se recorre en
-// cada pulsacion, cuando simulador95-layout.js ya reagrupo las notas en desplegables.
+// Las ayudas son dos cosas: los globos que aparecen al pasar el puntero (los apaga
+// simulador95-help.js al ver esta bandera) y los recuadros y notas que solo explican. Lo que
+// lleva id es estado del estudio (el paso de la reconstruccion, el mapa de atenuacion, los
+// archivos leidos) y se queda siempre a la vista; la caja del paso 2 tampoco se toca porque
+// contiene los controles de la FBP. La lista se recorre en cada pulsacion, cuando
+// simulador95-layout.js ya reagrupo las notas en desplegables.
 function explicaciones95(){return [...document.querySelectorAll('.notice,.compactNotes95,.step>p,.imagewindow>p,.inset.explanation')].filter(el=>!el.id&&!el.querySelector('input,select,button,progress'));}
-let notasOcultas95=false;
-$('hideNotes95').onclick=()=>{notasOcultas95=!notasOcultas95;for(const el of explicaciones95())el.classList.toggle('oculto95',notasOcultas95);$('hideNotes95').textContent=notasOcultas95?'Mostrar explicaciones':'Ocultar explicaciones';$('hideNotes95').setAttribute('aria-pressed',notasOcultas95);status(notasOcultas95?'Explicaciones ocultas. No cambia ningún parámetro ni resultado.':'Explicaciones visibles de nuevo.');};
+let ayudasOcultas95=false;
+$('hideHelp95').onclick=()=>{ayudasOcultas95=!ayudasOcultas95;for(const el of explicaciones95())el.classList.toggle('oculto95',ayudasOcultas95);$('hideHelp95').textContent=ayudasOcultas95?'Mostrar ayudas':'Ocultar ayudas';$('hideHelp95').setAttribute('aria-pressed',ayudasOcultas95);document.dispatchEvent(new Event('lab95ayudas'));status(ayudasOcultas95?'Ayudas ocultas: sin globos al pasar el puntero y sin recuadros explicativos. No cambia ningún parámetro ni resultado.':'Ayudas visibles de nuevo.');};
 async function readHeader(file){const bytes=new Uint8Array(await file.arrayBuffer());const d=dicomParser.parseDicom(bytes,{untilTag:'x7fe00010'});return d;}
 const str=(d,t)=>(d.string(t)||'').trim();
 $('spectFile').onchange=async()=>{const file=$('spectFile').files[0];if(!file)return;clearResults();const epoch=++spectGeneration;spect=null;$('caseName').textContent='Estudio importado';$('caseInfo').textContent='Lectura de cabeceras; reconstrucción pendiente de integración.';status('Leyendo SPECT…');try{const d=await readHeader(file);if(epoch!==spectGeneration)return;if(str(d,'x00080060')!=='NM')throw Error('Se espera modalidad NM.');if(!str(d,'x00080008').includes('TOMO')||str(d,'x00080008').includes('RECON'))throw Error('Selecciona las proyecciones tomográficas originales, no una reconstrucción.');const nf=Number(str(d,'x00280008'));if(!Number.isInteger(nf)||nf<2)throw Error('Se necesita una adquisición tomográfica multiframe.');spect={frame:str(d,'x00200052'),frames:nf,rows:d.uint16('x00280010'),cols:d.uint16('x00280011'),windows:d.uint16('x00540011')||1};$('spectInfo').textContent=`${file.name} · ${spect.rows} × ${spect.cols} · ${nf} imágenes · ${spect.windows} ventana(s). Cabecera NM reconocida; geometría y píxeles pendientes de validación por el motor.`;ctMessage();status('Cabecera SPECT leída. No se ha reconstruido este estudio.');}catch(e){$('spectInfo').textContent='No cargado: '+e.message;status('Revisa el archivo SPECT.');}};
