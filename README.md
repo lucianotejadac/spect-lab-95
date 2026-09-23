@@ -14,6 +14,14 @@ Enlaces directos por caso, para repartir a los estudiantes: [caso 1](https://luc
 
 Los datos de los casos viven en `paratiroides-casos.js`, idéntico en los dos repositorios. La clínica está desidentificada y los marcos de referencia se guardan como hash, no como UID. Los DICOM de los casos no forman parte del repositorio.
 
+## Tutorial cardíaco
+
+El botón **Tutorial cardíaco** guía la primera parte de un SPECT/CT de perfusión miocárdica con sestamibi, por fase (estrés y reposo): control de calidad de las proyecciones (cine, sinograma, linograma, comparación con la copia «QC Corrected» del equipo), FBP con órbita de 180°, registro con el CT de la fase, OSEM 2×8 sin y con corrección de atenuación, y reconstrucción de los 8 intervalos del gatillado en los cortes del corazón, exportados como «Caso N fase NoAC», «Caso N fase AC» y «Caso N fase gatillado». La segunda parte sigue en el [simulador cardíaco](https://lucianotejadac.github.io/simulador-cardiaco/).
+
+`?cardiaco=N` abre el simulador directamente en ese caso: [1](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=1) · [2](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=2) · [3](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=3) · [4](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=4) · [5](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=5) · [6](https://lucianotejadac.github.io/spect-lab-95/?cardiaco=6). Los casos viven en `cardiaco-casos.js`, idéntico en los dos repositorios.
+
+Para el tutorial cardíaco el motor acepta órbitas parciales (180° con dos cabezales a 90°) en la FBP, CT axiales con hasta 1° de inclinación, y adquisiciones gatilladas (`TimeSlotVector`) por intervalo.
+
 ## Privacidad
 
 La aplicación funciona íntegramente en el navegador. Los archivos DICOM seleccionados no se cargan en este repositorio ni se envían a un servidor por esta página estática.

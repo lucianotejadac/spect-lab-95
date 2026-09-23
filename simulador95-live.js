@@ -145,7 +145,10 @@
  let advancing=false;
  async function advanceFromRegistration(){
   if(advancing)return false;advancing=true;el('next').disabled=true;
-  try{if(!await confirmRegistration())return false;prepareBaselineOptions();el('osemStatus95').textContent='Preparando OSEM de referencia 1×1, sin correcciones ni filtros…';message('Registro confirmado. Iniciando OSEM de referencia 1×1 sin correcciones ni filtros.');navigate(2);return true;}
+  try{
+   // Sin CT no hay registro que confirmar: se pasa directo a la OSEM de referencia sin AC.
+   if(V&&!CT&&!groups.size){prepareBaselineOptions();el('osemStatus95').textContent='Sin CT: no hay registro ni mapa μ. Iniciando OSEM de referencia 1×1 sin correcciones…';message('Sin CT cargado se omite el registro. Iniciando OSEM de referencia 1×1 sin correcciones.');navigate(2);return true;}
+   if(!await confirmRegistration())return false;prepareBaselineOptions();el('osemStatus95').textContent='Preparando OSEM de referencia 1×1, sin correcciones ni filtros…';message('Registro confirmado. Iniciando OSEM de referencia 1×1 sin correcciones ni filtros.');navigate(2);return true;}
   finally{advancing=false;if(step===1)el('next').disabled=false;}
  }
 // Resumen del TC preparado, para quien necesite saber que se cargo sin tocar los pixeles.

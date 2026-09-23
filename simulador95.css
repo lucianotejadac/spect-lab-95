@@ -99,3 +99,19 @@
 @media(max-width:650px){.comparePair95{grid-template-columns:1fr}}
 .helpName95{cursor:help}.helpName95:hover{text-decoration:underline;text-decoration-style:dotted}.helpName95:focus-visible{outline:1px dotted #000;outline-offset:2px}
 #helpPopup95{pointer-events:none;cursor:default}#helpPopup95 .helpHint95{font-weight:bold;margin-top:8px;color:#000080}
+/* Tutorial cardiaco: control de calidad de proyecciones y bloque de gatillado. Solo se muestran
+   con ese tutorial abierto; las clases no tocan el resto de la interfaz. */
+.qc95,.gated95{margin:10px 0}
+.qcgrid95{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0}
+.gated95 .qcgrid95{grid-template-columns:repeat(2,minmax(0,1fr))}
+.qcgrid95 canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;background:#000;display:block}
+.qcgrid95 canvas#qcSino95,.qcgrid95 canvas#qcLino95{aspect-ratio:1}
+.qcgrid95 input[type=range]{width:100%}
+.fila95{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0}
+.fila95 label{display:inline-flex;align-items:center;gap:4px;margin:0}
+.fila95 input[type=range]{flex:1;min-width:80px}
+.fila95 input[type=number]{width:60px}
+.fila95 p{margin:0;flex-basis:100%}
+.qcgrid95 .imagewindow p{min-height:0}
+@media(max-width:1100px){.qcgrid95{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tutorialTabla95{border-collapse:collapse;font-size:11px;width:100%;margin:4px 0}.tutorialTabla95 td,.tutorialTabla95 th{border:1px solid #808080;padding:2px 4px;text-align:right}.tutorialTabla95 th{background:#dcdcdc}.tutorialTabla95 td:first-child{text-align:left}

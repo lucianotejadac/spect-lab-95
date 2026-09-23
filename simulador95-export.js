@@ -47,3 +47,51 @@ function buildSpectDicom95(entry,s,nombre){
  const fileMeta=concat([E(2,1,'OB',new Uint8Array([0,1])),E(2,2,'UI',klass),E(2,3,'UI',sop),E(2,0x10,'UI','1.2.840.10008.1.2.1'),E(2,0x12,'UI','2.25.260980434699510306077585833148324801201'),E(2,0x13,'SH','SPECT_PROTO_1')]);
  return new Blob([new Uint8Array(128),encoder.encode('DICM'),E(2,0,'UL',fileMeta.length),fileMeta,dataset],{type:'application/dicom'});
 }
+
+// Volumen gatillado: un solo NM multiframe RECON GATED TOMO con los intervalos cardiacos como
+// TimeSlotVector (bucle externo) y los cortes como SliceVector (bucle interno), en Z ascendente
+// del paciente, igual que la exportacion no gatillada. `gated.rows` son los indices de corte
+// reconstruidos (ascendentes en la matriz) y `gated.volumes[t]` el volumen del intervalo t con
+// esos cortes en ese orden. Los valores son relativos (uint16 con pendiente global).
+function buildGatedDicom95(gated,s,nombre){
+ const n=gated.n,sp=s.spacing,rows=gated.rows.slice().reverse(),T=gated.volumes.length,K=rows.length,p=n*n;
+ if(!T||!K||rows.some((r,i)=>i&&rows[i-1]-r!==1))throw new Error('La exportación gatillada requiere cortes contiguos y al menos un intervalo.');
+ const source=s.dicomSource;if(!source?.StudyInstanceUID||!source?.FrameOfReferenceUID)throw new Error('Faltan referencias del estudio original.');
+ const encoder=new TextEncoder(),concat=parts=>{const out=new Uint8Array(parts.reduce((a,q)=>a+q.length,0));let at=0;for(const q of parts){out.set(q,at);at+=q.length;}return out;};
+ function uint(v,bytes=2){const a=new Uint8Array(bytes),d=new DataView(a.buffer);bytes===2?d.setUint16(0,v,true):d.setUint32(0,v,true);return a;}
+ function element(group,tag,vr,value){let data;
+  if(value instanceof Uint8Array)data=value;
+  else if(vr==='US'||vr==='UL')data=concat((Array.isArray(value)?value:[value]).map(v=>uint(v,vr==='US'?2:4)));
+  else if(vr==='FD'){data=new Uint8Array(8);new DataView(data.buffer).setFloat64(0,value,true);}
+  else data=encoder.encode(Array.isArray(value)?value.join('\\'):String(value));
+  if(data.length%2)data=concat([data,new Uint8Array([vr==='UI'||['OB','OW','SQ'].includes(vr)?0:32])]);
+  const long=['OB','OW','SQ','UT','UN','OF','OD'].includes(vr),head=concat([uint(group),uint(tag),encoder.encode(vr),...(long?[uint(0),uint(data.length,4)]:[uint(data.length)])]);return concat([head,data]);
+ }
+ function sequence(g,t,items){return element(g,t,'SQ',concat(items.map(content=>concat([uint(0xfffe),uint(0xe000),uint(content.length,4),content]))));}
+ const uid=()=>{const bytes=crypto.getRandomValues(new Uint8Array(16));let v=0n;for(const b of bytes)v=(v<<8n)|BigInt(b);return '2.25.'+v.toString();},sop=uid(),series=uid(),klass='1.2.840.10008.5.1.4.1.1.20';
+ const now=new Date(),date=now.toISOString().slice(0,10).replaceAll('-',''),time=now.toISOString().slice(11,23).replaceAll(':','');
+ // Indice del corte r dentro de gated.rows (ascendente) para leer el volumen del intervalo.
+ const indice=new Map(gated.rows.map((r,i)=>[r,i]));let max=0;
+ for(const vol of gated.volumes)for(let i=0;i<vol.length;i++){const v=vol[i];if(!Number.isFinite(v))throw new Error('El volumen gatillado contiene valores inválidos.');if(v>max)max=v;}
+ const slope=max?max/65535:1,pixel=new Uint8Array(T*K*p*2),pv=new DataView(pixel.buffer);
+ const sliceVector=[],slotVector=[];
+ for(let t=0;t<T;t++)for(let k=0;k<K;k++){const vol=gated.volumes[t],base=indice.get(rows[k])*p,at=(t*K+k)*p;for(let j=0;j<p;j++)pv.setUint16((at+j)*2,Math.max(0,Math.min(65535,Math.round(vol[base+j]/slope))),true);sliceVector.push(k+1);slotVector.push(t+1);}
+ const ds=v=>Number(v).toPrecision(10),position=[s.origin[0]-(n-1)*sp/2,s.origin[1]-(n-1)*sp/2,s.z0-rows[0]*sp].map(ds);
+ const receta=`OSEM; iterations=${gated.parameters.iterations}; subsets=${gated.parameters.subsets}`;
+ const derivation=`EXPERIMENTAL GATED SPECT; ${T} time slots; ${receta}; AC=none; original rows ${rows.at(-1)+1}-${rows[0]+1}; post filter ${gated.parameters.postFilterFWHMmm||0} mm. Relative units. Geometry not clinically validated. Original study/patient/frame preserved.`;
+ const provenance={parameters:gated.parameters,timeSlots:T,originalRowsZeroBased:gated.rows,units:'relative arbitrary units',encoding:'uint16; global rescale slope; time slot outer loop, ascending patient Z inner loop',quantizationMaxError:slope/2,label:nombre||null,secondsPerGate:gated.seconds||null};
+ const E=element,S=sequence;
+ const rw=concat([S(0x0040,0x08ea,[concat([E(8,0x0100,'SH','1'),E(8,0x0102,'SH','UCUM'),E(8,0x0104,'LO','no units')])]),E(0x0040,0x9210,'SH','RELATIVE'),E(0x0040,0x9211,'US',65535),E(0x0040,0x9216,'US',0),E(0x0040,0x9224,'FD',0),E(0x0040,0x9225,'FD',slope)]);
+ const dataset=concat([
+ E(8,5,'CS','ISO_IR 192'),E(8,8,'CS',['DERIVED','PRIMARY','RECON GATED TOMO','EMISSION']),E(8,0x16,'UI',klass),E(8,0x18,'UI',sop),
+ E(8,0x20,'DA',source.StudyDate),E(8,0x23,'DA',date),E(8,0x30,'TM',source.StudyTime),E(8,0x33,'TM',time),E(8,0x50,'SH',source.AccessionNumber),E(8,0x60,'CS','NM'),E(8,0x70,'LO','Local SPECT prototype'),E(8,0x90,'PN',''),E(8,0x0201,'SH','+0000'),E(8,0x1030,'LO',source.StudyDescription||''),E(8,0x103e,'LO',`${nombre?nombre+' · ':''}EXPERIMENTAL GATED SPECT OSEM NAC`),E(8,0x2111,'ST',derivation),S(8,0x2112,[concat([E(8,0x1150,'UI',source.SOPClassUID),E(8,0x1155,'UI',source.SOPInstanceUID)])]),
+ E(0x0010,0x0010,'PN',source.PatientName),E(0x0010,0x0020,'LO',source.PatientID),E(0x0010,0x0030,'DA',source.PatientBirthDate),E(0x0010,0x0040,'CS',source.PatientSex),E(0x0010,0x1010,'AS',source.PatientAge),
+ E(0x0011,0x0010,'LO','LOCAL_SPECT_PROTOTYPE'),E(0x0011,0x1010,'UT',JSON.stringify(provenance)),
+ E(0x0018,0x0050,'DS',ds(sp)),E(0x0018,0x0088,'DS',ds(sp)),E(0x0018,0x1020,'LO','SPECT-PROTOTYPE-1'),E(0x0018,0x1100,'DS',ds(n*sp)),E(0x0018,0x1210,'SH','OSEM'),E(0x0018,0x5020,'LO',`OSEM ${gated.parameters.iterations} iterations ${gated.parameters.subsets} subsets gated`),E(0x0018,0x5100,'CS',source.PatientPosition||''),
+ E(0x0020,0x000d,'UI',source.StudyInstanceUID),E(0x0020,0x000e,'UI',series),E(0x0020,0x0010,'SH',source.StudyID),E(0x0020,0x0011,'IS','902'),E(0x0020,0x0013,'IS','1'),E(0x0020,0x0032,'DS',position),E(0x0020,0x0037,'DS',['1','0','0','0','1','0']),E(0x0020,0x0052,'UI',source.FrameOfReferenceUID),E(0x0020,0x4000,'LT','EXPERIMENTAL. Relative intensity; gated reconstruction without AC. Not validated for diagnosis.'),
+ E(0x0028,2,'US',1),E(0x0028,4,'CS','MONOCHROME2'),E(0x0028,8,'IS',T*K),E(0x0028,9,'AT',concat([uint(0x0054),uint(0x0070),uint(0x0054),uint(0x0080)])),E(0x0028,0x0010,'US',n),E(0x0028,0x0011,'US',n),E(0x0028,0x0030,'DS',[ds(sp),ds(sp)]),E(0x0028,0x0100,'US',16),E(0x0028,0x0101,'US',16),E(0x0028,0x0102,'US',15),E(0x0028,0x0103,'US',0),E(0x0028,0x0106,'US',0),E(0x0028,0x0107,'US',max?65535:0),E(0x0028,0x1050,'DS',max?'32767.5':'0'),E(0x0028,0x1051,'DS',max?'65535':'1'),E(0x0028,0x2110,'CS','00'),S(0x0040,0x9096,[rw]),
+ E(0x0054,0x0011,'US',1),S(0x0054,0x0012,[concat([E(0x0054,0x0018,'SH','Photopeak')])]),E(0x0054,0x0021,'US',1),S(0x0054,0x0022,[concat([E(0x0020,0x0032,'DS',position),E(0x0020,0x0037,'DS',['1','0','0','0','1','0'])])]),E(0x0054,0x0070,'US',slotVector),E(0x0054,0x0071,'US',T),S(0x0054,0x0072,Array.from({length:T},()=>concat([E(0x0054,0x0073,'DS','0')]))),E(0x0054,0x0080,'US',sliceVector),E(0x0054,0x0081,'US',K),E(0x7fe0,0x0010,'OW',pixel)
+ ]);
+ const fileMeta=concat([E(2,1,'OB',new Uint8Array([0,1])),E(2,2,'UI',klass),E(2,3,'UI',sop),E(2,0x10,'UI','1.2.840.10008.1.2.1'),E(2,0x12,'UI','2.25.260980434699510306077585833148324801201'),E(2,0x13,'SH','SPECT_PROTO_1')]);
+ return new Blob([new Uint8Array(128),encoder.encode('DICM'),E(2,0,'UL',fileMeta.length),fileMeta,dataset],{type:'application/dicom'});
+}

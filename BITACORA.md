@@ -133,6 +133,51 @@ caso). La rúbrica por caso no se publica aquí porque adelanta la impresión di
 
 - Los `.docx` de las carpetas de casos 2 a 5 traen nombre y RUT: sacarlos antes de
   repartir las carpetas.
+
+---
+
+## 2026-09-23 · Tutorial cardíaco: el mismo motor para la perfusión miocárdica
+
+Participantes: Luciano Tejada (docente) y Claude (Claude Code).
+
+**Contexto.** Seis SPECT/CT de perfusión miocárdica reales (estrés y reposo, dos cabezales a
+90°, 64 vistas en 180°, dos ventanas, gatillado a 8 intervalos, CT de atenuación). El plan
+inicial del APG proponía escribir la corrección de atenuación de nuevo; el docente preguntó por
+qué no se usaba este simulador. La cadena mapa μ + registro + OSEM AC + exportación ya existía
+y estaba probada con datos Siemens, así que la primera parte del APG cardíaco vive aquí como
+segundo tutorial, junto al de paratiroides, y la segunda en `lucianotejadac/simulador-cardiaco`.
+La bitácora completa del APG (selección de casos, entrega, decisiones de la segunda parte,
+validación) está en ese repositorio; aquí quedan las decisiones que tocan este motor.
+
+**Decisiones.**
+- **FBP con órbita parcial.** El worker exigía 360° y pesaba cada vista por sus huecos
+  vecinos; con el arco cardíaco las dos vistas extremas habrían pesado como media órbita. Ahora
+  detecta la órbita parcial (hueco mayor que tres pasos), exige al menos 170° y pesa todas las
+  vistas por el paso angular. La órbita completa se comporta igual que antes.
+- **CT con hasta 1° de inclinación**, tratado como axial: los CT remuestreados a la grilla
+  SPECT traen medio grado y a 3,3 mm de vóxel el error en el borde es menor que un vóxel. El
+  visor ya toleraba lo mismo en NM.
+- **Gatillado.** `Lab95.spect` lee `TimeSlotVector`; sin `{gated:true}` rechaza la
+  adquisición con una explicación, porque FBP y OSEM la tratarían como vistas duplicadas.
+  `Lab95.gate(s, t)` convierte un intervalo en una adquisición propia y el bloque «Gatillado»
+  del paso 3 reconstruye los 8 con la receta OSEM, sin AC y solo en los cortes del corazón
+  (rango propuesto sobre la FBP), y los exporta como un solo NM multiframe RECON GATED TOMO
+  (`buildGatedDicom95`).
+- **Control de calidad de proyecciones** en el paso 1: cine, sinograma, linograma, imagen suma,
+  medida del movimiento axial como corrimiento entero del perfil axial entre vistas vecinas, y
+  comparación vista por vista con la copia «QC Corrected» del equipo. El estudiante responde
+  por el movimiento y la actividad extracardíaca; el tutorial exige la respuesta, no la corrige.
+- **Dos tutoriales, un panel a la vez.** El cardíaco tiene su propio panel y su propio
+  parámetro de URL (`?cardiaco=N`, porque `?caso=N` ya abre el de paratiroides); al abrirse
+  cierra al otro por su botón y observa el botón del otro para cerrarse él. El módulo de
+  paratiroides no se tocó.
+
+**Descartado.** Un repositorio aparte copiando el motor; reconstruir los 128 cortes del
+gatillado (bastan los del corazón y el tiempo se multiplica por ocho).
+
+**Lo que costó.** Un `id` duplicado entre el botón del menú y el panel del tutorial hacía que
+el panel se dibujara dentro del botón y que cualquier clic dentro del tutorial lo cerrara: la
+prueba como estudiante lo encontró en el primer intento de aplicar la receta.
 - El caché del navegador tapa las publicaciones nuevas; Ctrl+F5 o versionar las URL de
   los scripts.
 - Las pruebas usan accesos directos `_datos/` y `_productos/` dentro de cada repo,

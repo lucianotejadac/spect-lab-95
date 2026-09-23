@@ -16,7 +16,10 @@
  function summarize(o){return `${o.iterations}×${o.subsets} · inicio ${o.initialization==='uniform'?'uniforme':'FBP'} · AC ${o.attenuationCorrection?'sí':'no'} · dispersión ${o.scatter?'peso '+o.scatterWeight:'no'} · PSF ${o.resolutionRecovery?o.psfFwhm100+' mm a 100 mm, intrínseca '+o.psfIntrinsic+' mm':'no'} · distancia ${o.distanceDependent?'por órbita':'constante'} · axial ${o.axialRecovery?'3D':'no'} · suavizado dispersión ${o.scatterSmoothing?o.scatterFwhm+' mm':'no'} · filtro final ${o.postFilter?o.postFilterFWHMmm+' mm':'no'}`;}
  function addEntry(entry){entry.id='r'+(++serial);history.push(entry);refreshLists();document.dispatchEvent(new Event('lab95state'));return entry.id;}
  // Lectura del historial para el tutorial: que se reconstruyo, con que opciones y si se exporto.
- window.Lab95Osem={entradas:()=>history.map(r=>({id:r.id,kind:r.kind,label:r.label,parameters:r.parameters,cortes:r.rows?r.rows.size:r.n,exportado:r.exportado||null}))};
+ window.Lab95Osem={entradas:()=>history.map(r=>({id:r.id,kind:r.kind,label:r.label,parameters:r.parameters,cortes:r.rows?r.rows.size:r.n,exportado:r.exportado||null})),
+  // El volumen de una reconstruccion terminada (Float32Array n^3, filas no reconstruidas en cero),
+  // para quien necesite buscar algo en la imagen sin volver a calcularla.
+  volumen:id=>{const r=history.find(x=>x.id===id);return r?{data:r.data,n:r.n,rows:r.rows?[...r.rows]:null}:null;}};
  function refreshLists(){
   refreshExport95();
   for(const id of ['historyTop95','historyBottom95']){const selected=e(id).value;e(id).replaceChildren(...history.map(r=>new Option(r.label+' · '+duration(r.seconds),r.id)));if(history.some(r=>r.id===selected))e(id).value=selected;}
