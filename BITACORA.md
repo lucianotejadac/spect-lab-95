@@ -178,6 +178,14 @@ gatillado (bastan los del corazón y el tiempo se multiplica por ocho).
 **Lo que costó.** Un `id` duplicado entre el botón del menú y el panel del tutorial hacía que
 el panel se dibujara dentro del botón y que cualquier clic dentro del tutorial lo cerrara: la
 prueba como estudiante lo encontró en el primer intento de aplicar la receta.
+
+**Segunda revisión (mismo día).** Al revisar si las preguntas se podían responder, se vio que
+los títulos y las particularidades adelantaban el diagnóstico; los detalles están en la bitácora
+de `simulador-cardiaco`. En este motor: el comparador de la copia «QC Corrected» distingue
+ahora copia idéntica, remuestreo bajo un vóxel y corrimiento entero, y una casilla muestra la
+copia en el cine y el sinograma; el bloque gatillado informa las cuentas por intervalo y por
+vista frente a la cruda; el paso del CT explica en su detalle, después de aceptarlo, cuando el
+rótulo del equipo contradice la fase.
 - El caché del navegador tapa las publicaciones nuevas; Ctrl+F5 o versionar las URL de
   los scripts.
 - Las pruebas usan accesos directos `_datos/` y `_productos/` dentro de cada repo,

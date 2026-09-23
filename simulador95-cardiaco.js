@@ -72,10 +72,12 @@
    {id:'qc',titulo:'Control de calidad de las proyecciones',hecho:qcOk,resaltar:['qcPlay95'],paso:0,
     texto:`Debajo del bloque de carga apareció el control de calidad. Reproduce el cine y mira el sinograma, el linograma y la imagen suma. ${d.guia} ${d.qc?'Tu carpeta trae la copia «NM_'+f+'_QC_corregido.dcm»: cárgala en el bloque para ver cuánto corrigió el equipo.':'Esta fase no trae copia corregida del equipo: el movimiento lo juzgas tú.'} Después responde las dos preguntas de «Tu evaluación».`,
     problema:spectOk&&!qcOk?[!qc.cine?'Falta reproducir el cine (botón ▶).':null,!qc.mov?'Falta responder si hubo movimiento.':null,!qc.extra?'Falta responder por la actividad extracardíaca.':null,qc.corregida&&qc.corregida.error?qc.corregida.error:null].filter(Boolean).join(' '):null,
-    detalle:()=>qc.medida?`Medido en la cruda: desplazamiento axial máximo entre vistas ${qc.medida.axialMm} mm${qc.corregida&&!qc.corregida.error?`; el equipo movió ${qc.corregida.vistas} de ${qc.corregida.total} vistas, hasta ${qc.corregida.maxMm} mm`:''}. Tu respuesta: movimiento ${qc.mov}, extracardíaca ${qc.extra}.`:null},
+    detalle:()=>qc.medida?`Medido en la cruda: salto axial máximo entre vistas vecinas ${qc.medida.axialMm} mm${qc.corregida&&!qc.corregida.error?(qc.corregida.modificadas===0?'; la copia corregida del equipo es idéntica a la cruda':qc.corregida.vistas===0?`; el equipo remuestreó ${qc.corregida.modificadas} vistas con corrimientos menores de un vóxel`:`; el equipo movió ${qc.corregida.vistas} de ${qc.corregida.total} vistas, hasta ${qc.corregida.maxMm} mm`):''}. Tu respuesta: movimiento ${qc.mov}, extracardíaca ${qc.extra}.`:null},
    ...(conCT?[{id:'ct',titulo:`Cargar el CT de ${nombreFase} y elegir su serie`,hecho:ctOk,resaltar:['ctFolder','ctSeries'],paso:0,
-    texto:`«O seleccionar carpeta» del bloque TC, con la carpeta «CT 512» ${d.ct['CT 128']?'o «CT 128» ':''}de ${carpeta}: ${Object.entries(d.ct).map(([k,n])=>`${k} tiene ${n} cortes`).join(', ')}. El de 512 es el CT tal como salió del tomógrafo; el de 128 es el mismo remuestreado a la grilla del SPECT por el equipo. Cualquiera sirve para el mapa μ. Después elige la serie en la lista.${estado.caso===3&&f==='estres'?' Ojo: el equipo rotuló este CT como «AC REST». Es un error de rotulación real; su marco de referencia es el del estrés y el simulador lo va a aceptar.':''}`,
-    problema:spectOk?problemaCt:null}]:[]),
+    texto:`«O seleccionar carpeta» del bloque TC, con la carpeta «CT 512» ${d.ct['CT 128']?'o «CT 128» ':''}de ${carpeta}: ${Object.entries(d.ct).map(([k,n])=>`${k} tiene ${n} cortes`).join(', ')}. El de 512 es el CT tal como salió del tomógrafo; el de 128 es el mismo remuestreado a la grilla del SPECT por el equipo. Cualquiera sirve para el mapa μ. Después elige la serie en la lista. Lo que decide si un CT sirve no es su nombre sino su marco de referencia: el simulador acepta el de esta fase y rechaza el de la otra.`,
+    problema:spectOk?problemaCt:null,
+    // Lo que el nombre de la serie no dice: si el rotulo contradice la fase, el marco de referencia manda.
+    detalle:()=>ctOk&&ct.nombre?((f==='estres'&&/REST|REPOSO/i.test(ct.nombre))||(f==='reposo'&&/STRESS|ESTRES/i.test(ct.nombre))?`Aceptado: «${ct.nombre}», ${ct.cortes} cortes. Fíjate en el rótulo: el equipo lo nombró como si fuera de la otra fase, pero su marco de referencia es el de esta. El nombre lo escribe una persona; el marco lo escribe el equipo.`:`Aceptado: «${ct.nombre}», ${ct.cortes} cortes, mismo marco de referencia que el SPECT.`):null}]:[]),
    {id:'fbp',titulo:'Generar la FBP',hecho:!!v.fbp&&spectOk,resaltar:['fbp95'],paso:1,
     texto:'En el paso 2, «Generar FBP» con la ventana de fotopico (99m Technetium) y el filtro rampa. Es la reconstrucción preliminar: sirve para el registro y para ver el ruido en estrella y la pared inferior apagada por la atenuación. La órbita es de 180°: el simulador lo detecta y pesa cada vista por el paso angular.'},
    ...(conCT?[{id:'registro',titulo:'Revisar el registro y preparar el mapa μ',hecho:!!v.mu&&spectOk,resaltar:['confirm95'],paso:1,
@@ -131,23 +133,30 @@
   if(!estado.abierto)return;const s=vivoLab().spect;
   if(!s||s.slots!==1){qcState.s=null;e('qcCuentas95').textContent='Carga las proyecciones para ver el control de calidad.';return;}
   const w=e('qcVentana95').checked?(s.windows.find(x=>x.id!==ventanaActual())?.id||ventanaActual()):ventanaActual();
-  const fr=vistas(s,w),n=s.n,p=n*n;if(!fr.length)return;
-  const cambio=qcState.s!==s||qcState.w!==w;qcState.s=s;qcState.w=w;qcState.frames=fr;
-  if(cambio){let max=0;for(const v of fr){const a=s.data.subarray(v.source*p,(v.source+1)*p);for(let i=0;i<p;i++)if(a[i]>max)max=a[i];}qcState.max=max*.8||1;e('qcFrame95').max=fr.length-1;qcState.k=Math.min(qcState.k,fr.length-1);
+  // Con la casilla marcada, el panel muestra la copia corregida del equipo en vez de la cruda;
+  // la medida de movimiento se calcula siempre sobre la cruda.
+  const hayCopia=!!vivo.qcCorregida&&vivo.qcCorregida.frame===s.frame;e('qcVerCorregida95').disabled=!hayCopia;if(!hayCopia)e('qcVerCorregida95').checked=false;
+  const src=e('qcVerCorregida95').checked&&hayCopia?vivo.qcCorregida:s;
+  const fr=vistas(src,w),n=s.n,p=n*n;if(!fr.length)return;
+  const cambio=qcState.s!==s||qcState.w!==w||qcState.src!==src;qcState.s=s;qcState.w=w;qcState.src=src;qcState.frames=fr;
+  if(cambio){let max=0;for(const v of fr){const a=src.data.subarray(v.source*p,(v.source+1)*p);for(let i=0;i<p;i++)if(a[i]>max)max=a[i];}qcState.max=max*.8||1;e('qcFrame95').max=fr.length-1;qcState.k=Math.min(qcState.k,fr.length-1);
    // Imagen suma, linograma y fila del sinograma por omision (fila del maximo de la suma).
    const suma=new Float32Array(p),lino=new Float32Array(fr.length*n);let total=0;
-   fr.forEach((v,k)=>{const a=s.data.subarray(v.source*p,(v.source+1)*p);for(let i=0;i<p;i++){suma[i]+=a[i];total+=a[i];}for(let y=0;y<n;y++){let q=0;for(let x=0;x<n;x++)q+=a[y*n+x];lino[y*fr.length+k]=q;}});
+   fr.forEach((v,k)=>{const a=src.data.subarray(v.source*p,(v.source+1)*p);for(let i=0;i<p;i++){suma[i]+=a[i];total+=a[i];}for(let y=0;y<n;y++){let q=0;for(let x=0;x<n;x++)q+=a[y*n+x];lino[y*fr.length+k]=q;}});
    let mi=0;for(let i=1;i<p;i++)if(suma[i]>suma[mi])mi=i;const fila=Math.floor(mi/n);e('qcFila95').value=fila;
    pintar(e('qcSuma95'),suma,n,n,Math.max(...suma)*.9);let lmax=0;for(let i=0;i<lino.length;i++)if(lino[i]>lmax)lmax=lino[i];pintar(e('qcLino95'),lino,fr.length,n,lmax);
-   const porVista=Math.round(total/fr.length);e('qcCuentas95').textContent=`${fr.length} vistas de ${Math.round((fr[0]?.angle!==undefined?s.arc:180))}° · ${(total/1e6).toFixed(2)} M cuentas en la ventana ${w===ventanaActual()?'de fotopico':'de dispersión'} · ${(porVista/1000).toFixed(0)} k por vista.`;
+   const porVista=Math.round(total/fr.length);e('qcCuentas95').textContent=`${src===s?'Cruda':'Copia corregida'}: ${fr.length} vistas de ${s.arc}° · ${(total/1e6).toFixed(2)} M cuentas en la ventana ${w===ventanaActual()?'de fotopico':'de dispersión'} · ${(porVista/1000).toFixed(0)} k por vista.`;
+   if(src===s)qcState.porVista=porVista;
    // Medida de movimiento axial: corrimiento entero del perfil axial de cada vista respecto a la
    // vista vecina (las proyecciones cambian poco entre angulos contiguos; un salto es movimiento).
+   if(src===s){
    const perfil=k=>{const p=new Float64Array(n);for(let y=0;y<n;y++)p[y]=lino[y*fr.length+k];return p;};
    let salto=0,deriva=0,prev=perfil(0);
    for(let k=1;k<fr.length;k++){const cur=perfil(k);let mejor=Infinity,mdy=0;for(let dy=-6;dy<=6;dy++){let ssd=0;for(let y=8;y<n-8;y++){const q=cur[y]-prev[y+dy];ssd+=q*q;}if(ssd<mejor){mejor=ssd;mdy=dy;}}salto=Math.max(salto,Math.abs(mdy));deriva+=mdy;prev=cur;}
    const dev=salto,drift=Math.abs(deriva);
    if(estado.caso&&faseDelMarco(cardiacoHash(s.frame))){const f=faseDelMarco(cardiacoHash(s.frame));estado.hechos[f].qc.medida={axialMm:+(dev*s.spacing).toFixed(1),driftMm:+(drift*s.spacing).toFixed(1),porVista};guardar();}
    e('qcMedida95').textContent=`Medida automática sobre la cruda: el salto axial máximo entre vistas vecinas es de ${dev} vóxel(es) (${(dev*s.spacing).toFixed(1)} mm) y la deriva acumulada a lo largo de la órbita de ${(drift*s.spacing).toFixed(1)} mm. Un vóxel son ${s.spacing.toFixed(1)} mm; un salto de un vóxel ya se nota en la reconstrucción. Júzgalo junto con el cine y el linograma.`;
+   }
    if(vivo.qcCorregida&&vivo.qcCorregida.frame!==s.frame){vivo.qcCorregida=null;e('qcCorregidaInfo95').textContent='La copia corregida cargada era de otra fase; cárgala de nuevo para esta.';}
   }
   dibujarCine();dibujarSino();
@@ -156,7 +165,7 @@
  function dibujarSino(){const s=qcState.s;if(!s)return;const fr=qcState.frames,n=s.n,p=n*n,y=+e('qcFila95').value;e('qcFilaValor95').textContent=y;const img=new Float32Array(fr.length*n);let max=0;fr.forEach((v,k)=>{for(let x=0;x<n;x++){const q=s.data[v.source*p+y*n+x];img[x*fr.length+k]=q;if(q>max)max=q;}});pintar(e('qcSino95'),img,fr.length,n,max*.9);}
  e('qcFrame95').oninput=()=>{qcState.k=+e('qcFrame95').value;dibujarCine();};
  e('qcFila95').oninput=dibujarSino;
- e('qcVentana95').onchange=()=>{refrescarQc();};
+ e('qcVentana95').onchange=()=>{refrescarQc();};e('qcVerCorregida95').onchange=()=>{refrescarQc();};
  e('qcPlay95').onclick=()=>{
   if(qcState.timer){clearInterval(qcState.timer);qcState.timer=null;e('qcPlay95').textContent='▶ Reproducir';return;}
   if(!qcState.s)return;e('qcPlay95').textContent='■ Detener';let vueltas=0;
@@ -169,16 +178,18 @@
   const file=e('qcArchivo95').files[0];if(!file)return;const s=vivoLab().spect;
   try{const d=await Lab95.read(file),c=Lab95.spect(d);if(!s)throw Error('Carga primero la cruda en el bloque SPECT.');if(c.frame!==s.frame)throw Error('Esa copia no es de la fase cargada: su marco de referencia es otro.');if(!/orrected/i.test(c.description||''))throw Error('Ese archivo no es la copia «QC Corrected»: su descripción es «'+c.description+'».');
    vivo.qcCorregida=c;const r=compararCorregida(s,c);const f=faseActualDelSpect();if(f){estado.hechos[f].qc.corregida=r;guardar();}
-   e('qcCorregidaInfo95').textContent=`Copia «${c.description}» comparada vista por vista con la cruda: el equipo desplazó ${r.vistas} de ${r.total} vistas; corrimiento máximo ${r.maxPx} píxeles (${r.maxMm} mm), ${r.axial>=r.transversal?'sobre todo axial (a lo largo de la camilla)':'sobre todo transversal'}.${r.vistas===0?' No movió ninguna: el equipo no encontró movimiento que corregir.':''}`;render();
+   const resumen=r.modificadas===0?'Los píxeles son idénticos a los de la cruda: el equipo no encontró movimiento que corregir y la copia es la misma imagen.':r.vistas===0?`El equipo modificó ${r.modificadas} de ${r.total} vistas, pero con corrimientos menores de un vóxel (remuestreo fino, sin saltos enteros); las cuentas cambiaron un ${r.cambioPct} %.`:`El equipo desplazó ${r.vistas} de ${r.total} vistas con corrimientos enteros, el mayor de ${r.maxPx} píxeles (${r.maxMm} mm), ${r.axial>=r.transversal?'sobre todo axial (a lo largo de la camilla)':'sobre todo transversal'}; en total modificó ${r.modificadas} vistas.`;
+   e('qcCorregidaInfo95').textContent=`Copia «${c.description}» comparada vista por vista con la cruda. ${resumen} Marca la casilla para verla en el cine y el sinograma.`;refrescarQc();render();
   }catch(err){const f=faseActualDelSpect();if(f){estado.hechos[f].qc.corregida={error:'Copia corregida: '+err.message};guardar();}e('qcCorregidaInfo95').textContent='No cargado: '+err.message;render();}
  };
  // Corrimiento entero (dx,dy) que mejor superpone cada vista cruda con su corregida.
  function compararCorregida(s,c){
-  const w=ventanaActual(),a=vistas(s,w),b=vistas(c,w),n=s.n,p=n*n;let vistasMovidas=0,maxPx=0,axial=0,transversal=0;
-  for(let k=0;k<Math.min(a.length,b.length);k++){const A=s.data.subarray(a[k].source*p,(a[k].source+1)*p),B=c.data.subarray(b[k].source*p,(b[k].source+1)*p);let mejor=Infinity,mdx=0,mdy=0;
+  const w=ventanaActual(),a=vistas(s,w),b=vistas(c,w),n=s.n,p=n*n;let vistasMovidas=0,modificadas=0,maxPx=0,axial=0,transversal=0,sumaA=0,sumaB=0;
+  for(let k=0;k<Math.min(a.length,b.length);k++){const A=s.data.subarray(a[k].source*p,(a[k].source+1)*p),B=c.data.subarray(b[k].source*p,(b[k].source+1)*p);let mejor=Infinity,mdx=0,mdy=0,distinta=false;
+   for(let i=0;i<p;i++){sumaA+=A[i];sumaB+=B[i];if(A[i]!==B[i])distinta=true;}if(distinta)modificadas++;
    for(let dy=-6;dy<=6;dy++)for(let dx=-6;dx<=6;dx++){let ssd=0;for(let y=8;y<n-8;y+=2)for(let x=8;x<n-8;x+=2){const q=A[(y+dy)*n+x+dx]-B[y*n+x];ssd+=q*q;}if(ssd<mejor){mejor=ssd;mdx=dx;mdy=dy;}}
    if(mdx||mdy){vistasMovidas++;maxPx=Math.max(maxPx,Math.hypot(mdx,mdy));axial+=Math.abs(mdy);transversal+=Math.abs(mdx);}}
-  return {vistas:vistasMovidas,total:a.length,maxPx:+maxPx.toFixed(1),maxMm:+(maxPx*s.spacing).toFixed(1),axial,transversal};
+  return {vistas:vistasMovidas,modificadas,total:a.length,maxPx:+maxPx.toFixed(1),maxMm:+(maxPx*s.spacing).toFixed(1),axial,transversal,cambioPct:+(100*Math.abs(sumaB-sumaA)/(sumaA||1)).toFixed(2)};
  }
 
  // --- Gatillado ------------------------------------------------------------------------------
@@ -188,7 +199,11 @@
   const file=e('gatedFile95').files[0];if(!file)return;e('gatedInfo95').textContent='Leyendo la adquisición gatillada…';
   try{const d=await Lab95.read(file),g=Lab95.spect(d,{gated:true});const f=faseDeGated(g);
    if(!estado.caso)throw Error('Elige primero el caso en el tutorial.');if(!f)throw Error('Esa gatillada no es de este caso.');
-   vivo.gated[f]=g;vivo.recon[f]=null;e('gatedInfo95').textContent=`«${g.description}»: ${g.frames} imágenes, ${g.slots} intervalos, ${vistas(g,ventanaActual()).length} vistas por intervalo. Fase ${CARDIACO_NOMBRE_FASE[f]}.`;
+   vivo.gated[f]=g;vivo.recon[f]=null;
+   // Cuentas de fotopico por intervalo y por vista, y su proporcion respecto a la cruda no gatillada.
+   const w=ventanaActual(),p=g.n*g.n,porSlot=new Float64Array(g.slots);for(const v of g.views){if(v.window!==w)continue;const a=g.data.subarray(v.source*p,(v.source+1)*p);let q=0;for(let i=0;i<p;i++)q+=a[i];porSlot[v.slot-1]+=q;}
+   const nv=vistas(g,w).length,total=porSlot.reduce((x,y)=>x+y,0),medioSlot=total/g.slots,porVista=medioSlot/nv,crudaPorVista=qcState.porVista||0;
+   e('gatedInfo95').textContent=`«${g.description}»: ${g.frames} imágenes, ${g.slots} intervalos, ${nv} vistas por intervalo. Fase ${CARDIACO_NOMBRE_FASE[f]}. Fotopico: ${(total/1e6).toFixed(2)} M cuentas en total, ${(medioSlot/1000).toFixed(0)} k por intervalo (de ${(Math.min(...porSlot)/1000).toFixed(0)} a ${(Math.max(...porSlot)/1000).toFixed(0)} k), ${(porVista/1000).toFixed(1)} k por vista${crudaPorVista?` frente a ${(crudaPorVista/1000).toFixed(0)} k por vista de la no gatillada: una fracción de ${(porVista/crudaPorVista).toFixed(2)}`:''}.`;
   }catch(err){e('gatedInfo95').textContent='No cargado: '+err.message;}
   refrescarGated();render();
  };
