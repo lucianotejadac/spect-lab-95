@@ -135,8 +135,8 @@
   const w=e('qcVentana95').checked?(s.windows.find(x=>x.id!==ventanaActual())?.id||ventanaActual()):ventanaActual();
   // Con la casilla marcada, el panel muestra la copia corregida del equipo en vez de la cruda;
   // la medida de movimiento se calcula siempre sobre la cruda.
-  const hayCopia=!!vivo.qcCorregida&&vivo.qcCorregida.frame===s.frame;e('qcVerCorregida95').disabled=!hayCopia;if(!hayCopia)e('qcVerCorregida95').checked=false;
-  const src=e('qcVerCorregida95').checked&&hayCopia?vivo.qcCorregida:s;
+  const hayCopia=!!vivo.qcCorregida&&vivo.qcCorregida.frame===s.frame,chk=e('qcVerCorregida95');if(chk){chk.disabled=!hayCopia;if(!hayCopia)chk.checked=false;}
+  const src=chk&&chk.checked&&hayCopia?vivo.qcCorregida:s;
   const fr=vistas(src,w),n=s.n,p=n*n;if(!fr.length)return;
   const cambio=qcState.s!==s||qcState.w!==w||qcState.src!==src;qcState.s=s;qcState.w=w;qcState.src=src;qcState.frames=fr;
   if(cambio){let max=0;for(const v of fr){const a=src.data.subarray(v.source*p,(v.source+1)*p);for(let i=0;i<p;i++)if(a[i]>max)max=a[i];}qcState.max=max*.8||1;e('qcFrame95').max=fr.length-1;qcState.k=Math.min(qcState.k,fr.length-1);
@@ -165,7 +165,7 @@
  function dibujarSino(){const s=qcState.s;if(!s)return;const fr=qcState.frames,n=s.n,p=n*n,y=+e('qcFila95').value;e('qcFilaValor95').textContent=y;const img=new Float32Array(fr.length*n);let max=0;fr.forEach((v,k)=>{for(let x=0;x<n;x++){const q=s.data[v.source*p+y*n+x];img[x*fr.length+k]=q;if(q>max)max=q;}});pintar(e('qcSino95'),img,fr.length,n,max*.9);}
  e('qcFrame95').oninput=()=>{qcState.k=+e('qcFrame95').value;dibujarCine();};
  e('qcFila95').oninput=dibujarSino;
- e('qcVentana95').onchange=()=>{refrescarQc();};e('qcVerCorregida95').onchange=()=>{refrescarQc();};
+ e('qcVentana95').onchange=()=>{refrescarQc();};if(e('qcVerCorregida95'))e('qcVerCorregida95').onchange=()=>{refrescarQc();};
  e('qcPlay95').onclick=()=>{
   if(qcState.timer){clearInterval(qcState.timer);qcState.timer=null;e('qcPlay95').textContent='▶ Reproducir';return;}
   if(!qcState.s)return;e('qcPlay95').textContent='■ Detener';let vueltas=0;
