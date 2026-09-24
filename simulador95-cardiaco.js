@@ -228,7 +228,11 @@
   const inf=[0,0,1],dot=inf[2]*a[2];let v=[-dot*a[0],-dot*a[1],1-dot*a[2]];const lv=Math.hypot(...v)||1;v=v.map(q=>q/lv);const u=[a[1]*v[2]-a[2]*v[1],a[2]*v[0]-a[0]*v[2],a[0]*v[1]-a[1]*v[0]];
   // Dos tamanos de anillo: corazon normal (radio 11 a 21 mm) y dilatado (24 a 44 mm).
   const c=n>>1,anillos=[[11,21,7,1.5],[24,44,14,4]].map(([a0,b0,R,rIn])=>{const r0=a0/spacing,r1=b0/spacing,pts=[];for(let j=-R;j<=R;j++)for(let i=-R;i<=R;i++){const r=Math.hypot(i,j);if(r<=rIn)pts.push([i,j,-1]);else if(r>=r0&&r<=r1)pts.push([i,j,Math.floor(((Math.atan2(j,i)+Math.PI)/(2*Math.PI))*8)%8]);}return pts;});
-  const puntajeCon=(pts,x,y,z)=>{const sec=new Float64Array(8),cnt=new Float64Array(8);let cen=0,ncen=0;for(const [i,j,s] of pts){const q=muestraFbp(vol,n,x+u[0]*i+v[0]*j,y+u[1]*i+v[1]*j,z+u[2]*i+v[2]*j);if(s<0){cen+=q;ncen++;}else{sec[s]+=q;cnt[s]++;}}let min=Infinity,max=0;for(let s=0;s<8;s++){const q=cnt[s]?sec[s]/cnt[s]:0;min=Math.min(min,q);max=Math.max(max,q);}return min-(ncen?cen/ncen:0)-.5*(max-min);};
+  const puntajeCon=(pts,x,y,z)=>{const sec=new Float64Array(8),cnt=new Float64Array(8);let cen=0,ncen=0;for(const [i,j,s] of pts){const q=muestraFbp(vol,n,x+u[0]*i+v[0]*j,y+u[1]*i+v[1]*j,z+u[2]*i+v[2]*j);if(s<0){cen+=q;ncen++;}else{sec[s]+=q;cnt[s]++;}}
+   // Promedio de los tres sectores mas debiles (no el minimo): con pocas cuentas (estres de 9 mCi
+   // en el caso 1) el ruido hunde siempre algun sector y el anillo verdadero puntuaba negativo,
+   // asi que el rango propuesto caia en otra parte. Igual que en simulador-cardiaco.
+   const prom=[];for(let s=0;s<8;s++)prom.push(cnt[s]?sec[s]/cnt[s]:0);prom.sort((p1,p2)=>p1-p2);const min=(prom[0]+prom[1]+prom[2])/3,max=prom[7];return min-(ncen?cen/ncen:0)-.5*(max-min);};
   let mejor={p:-Infinity},pts=anillos[0];for(const cand of anillos)for(let z=4;z<n-4;z+=2)for(let y=c-26;y<=c+14;y+=2)for(let x=c-10;x<=c+30;x+=2){const p=puntajeCon(cand,x,y,z);if(p>mejor.p){mejor={p,x,y,z};pts=cand;}}
   if(!(mejor.p>0))return null;const puntaje=(x,y,z)=>puntajeCon(pts,x,y,z);
   const perfil=t=>puntaje(mejor.x+a[0]*t,mejor.y+a[1]*t,mejor.z+a[2]*t);let tA=0,tB=0;while(tA<25&&perfil(tA+1)>.25*mejor.p)tA++;while(tB>-25&&perfil(tB-1)>.25*mejor.p)tB--;tA+=3;tB-=2;

@@ -186,6 +186,16 @@ ahora copia idéntica, remuestreo bajo un vóxel y corrimiento entero, y una cas
 copia en el cine y el sinograma; el bloque gatillado informa las cuentas por intervalo y por
 vista frente a la cruda; el paso del CT explica en su detalle, después de aceptarlo, cuando el
 rótulo del equipo contradice la fase.
+
+**Tercera revisión (24-09-2026): el rango del gatillado del caso 1.** La prueba con clics de la
+segunda parte en los seis casos mostró que el gatillado del estrés del caso 1 (9 mCi, pocas
+cuentas) se había reconstruido fuera del corazón. `buscarVentriculoFbp` puntuaba «sector más
+débil del anillo menos centro»: con ruido siempre hay un sector hundido, el anillo verdadero
+daba negativo y ganaba un falso anillo del abdomen. Ahora promedia los tres sectores más
+débiles, igual que el buscador de la segunda parte; el rango propuesto pasó de los cortes 1–33 a
+los 25–54 y los otros cinco casos no cambian. Pendiente: la prueba solo comprueba el ancho del
+rango, no que contenga el corazón; convendría avisar en el tutorial si el anillo queda fuera del
+rango elegido antes de reconstruir.
 - El caché del navegador tapa las publicaciones nuevas; Ctrl+F5 o versionar las URL de
   los scripts.
 - Las pruebas usan accesos directos `_datos/` y `_productos/` dentro de cada repo,
