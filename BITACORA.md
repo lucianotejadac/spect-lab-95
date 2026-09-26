@@ -196,6 +196,11 @@ débiles, igual que el buscador de la segunda parte; el rango propuesto pasó de
 los 25–54 y los otros cinco casos no cambian. Pendiente: la prueba solo comprueba el ancho del
 rango, no que contenga el corazón; convendría avisar en el tutorial si el anillo queda fuera del
 rango elegido antes de reconstruir.
+**Línea del panel al control (26-09-2026).** Los dos tutoriales (paratiroides y cardíaco) llaman a
+`tutorial-linea.js`, compartido con los simuladores renales, de tiroides y cardíaco: una línea de
+puntos desde el panel hasta el control resaltado, idea tomada de la consola TC. Detalle en la
+bitácora de `simulador-cardiaco`, sección 10.
+
 - El caché del navegador tapa las publicaciones nuevas; Ctrl+F5 o versionar las URL de
   los scripts.
 - Las pruebas usan accesos directos `_datos/` y `_productos/` dentro de cada repo,

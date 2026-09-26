@@ -96,6 +96,7 @@
   for(const el of resaltados)el.classList.remove('tutorialResaltado95');
   resaltados=[];
   for(const id of ids){const control=e(id);if(!control)continue;const objetivo=control.type==='file'?control.closest('label')||control:control;if(objetivo.closest('[hidden]'))continue;objetivo.classList.add('tutorialResaltado95');resaltados.push(objetivo);}
+  if(window.TutorialLinea)TutorialLinea.apuntar(panel,resaltados);
  }
 
  // --- Render -----------------------------------------------------------------------------
