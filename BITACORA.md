@@ -201,6 +201,13 @@ rango elegido antes de reconstruir.
 puntos desde el panel hasta el control resaltado, idea tomada de la consola TC. Detalle en la
 bitácora de `simulador-cardiaco`, sección 10.
 
+**La zona negra del sinograma (27-09-2026).** No es aire fuera del paciente: son columnas con cero
+cuentas exactas que el equipo rellena cuando los cabezales en L, con contorno corporal, se
+desplazan lateralmente (la franja de un cabezal crece 1 mm por cada mm de radio del otro;
+correlación 1,000 en el caso 1). Se corrigió el texto bajo el sinograma. La OSEM sigue tratando
+esos píxeles como ceros medidos; excluirlos queda pendiente porque obliga a revalidar. Detalle
+en la bitácora de `cardiaco-movil`.
+
 - El caché del navegador tapa las publicaciones nuevas; Ctrl+F5 o versionar las URL de
   los scripts.
 - Las pruebas usan accesos directos `_datos/` y `_productos/` dentro de cada repo,
