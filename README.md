@@ -30,3 +30,7 @@ La aplicación funciona íntegramente en el navegador. Los archivos DICOM selecc
 
 Este proyecto es un simulador docente. No está validado como dispositivo médico y sus resultados no deben emplearse para diagnóstico, tratamiento ni decisiones clínicas.
 
+## Licencia
+
+© 2026 Luciano Tejada Castro. Distribuido bajo licencia [MIT](LICENSE).
+Los componentes y datos de terceros conservan sus propias licencias, indicadas en este documento o junto a ellos.
